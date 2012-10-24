@@ -20,7 +20,6 @@ use utf8;
 use warnings qw(all);
 
 use base qw(LWP::Protocol);
-use feature qw(switch);
 
 use Carp qw(carp);
 use HTTP::Date;
@@ -85,9 +84,9 @@ sub request {
     }
 
     $easy->setopt(CURLOPT_BUFFERSIZE        ,=> $size)
-        if $size // 0;
+        if defined $size and $size;
     $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout)
-        if $timeout // 0;
+        if defined $timeout and $timeout;
 
     #$easy->setopt(CURLOPT_NOPROGRESS        ,=> 0);
     #$easy->setopt(CURLOPT_PROGRESSFUNCTION  ,=> sub {});
@@ -99,39 +98,36 @@ sub request {
     $easy->setopt(CURLOPT_WRITEDATA         ,=> \$data);
     $easy->setopt(CURLOPT_WRITEHEADER       ,=> \$header);
 
-    for (uc $request->method) {
-        when (q(GET)) {
-            $easy->setopt(CURLOPT_HTTPGET   ,=> 1);
-        } when (q(POST)) {
-            $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
-        } when (q(HEAD)) {
-            $easy->setopt(CURLOPT_NOBODY    ,=> 1);
-        } default {
-            return HTTP::Response->new(
-                &HTTP::Status::RC_BAD_REQUEST,
-                qq(Bad method '$_')
-            );
-        }
+    my $method = uc $request->method;
+    if ($method eq q(GET)) {
+        $easy->setopt(CURLOPT_HTTPGET   ,=> 1);
+    } elsif ($method eq q(POST)) {
+        $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
+    } elsif ($method eq q(HEAD)) {
+        $easy->setopt(CURLOPT_NOBODY    ,=> 1);
+    } else {
+        return HTTP::Response->new(
+            &HTTP::Status::RC_BAD_REQUEST,
+            qq(Bad method '$_')
+        );
     }
 
     $request->headers->scan(sub {
         my ($key, $value) = @_;
-        for ($key) {
-            when (/^accept-encoding$/ix) {
-                my @encoding =
-                    map { /^(?:x-)?(deflate|gzip|identity)$/ix ? lc $1 : () }
-                    split /\s*,\s*/x, $value;
+        if ($key =~ /^accept-encoding$/ix) {
+            my @encoding =
+                map { /^(?:x-)?(deflate|gzip|identity)$/ix ? lc $1 : () }
+                split /\s*,\s*/x, $value;
 
-                @encoding
-                    and ++$encoding
-                    and $easy->setopt(CURLOPT_ENCODING ,=> join(q(, ) => @encoding));
-            } default {
-                $easy->pushopt(CURLOPT_HTTPHEADER ,=> [qq[$key: $value]]);
-            }
+            @encoding
+                and ++$encoding
+                and $easy->setopt(CURLOPT_ENCODING ,=> join(q(, ) => @encoding));
+        } else {
+            $easy->pushopt(CURLOPT_HTTPHEADER ,=> [qq[$key: $value]]);
         }
     });
 
-    my $status = eval { $easy->perform // 0 };
+    my $status = eval { $easy->perform; 0 };
     if (not defined $status or $@) {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
@@ -146,7 +142,7 @@ sub request {
     );
     $response->request($request);
 
-    my $msg = $response->message // '';
+    my $msg = defined $response->message ? $response->message : '';
     $msg =~ s/^\s+|\s+$//gsx;
     $response->message($msg);
 
