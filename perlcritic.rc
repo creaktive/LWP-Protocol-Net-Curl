@@ -1,3 +1,5 @@
+severity = stern
+
 [TestingAndDebugging::RequireUseWarnings]
 equivalent_modules = common::sense
 

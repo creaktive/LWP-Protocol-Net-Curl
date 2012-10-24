@@ -28,7 +28,7 @@ use Net::Curl::Easy qw(:constants);
 use Scalar::Util qw(looks_like_number);
 
 # VERSION
- 
+
 our @implements =
     sort grep { defined }
         @{ { map { ($_)x2 } @{Net::Curl::version_info->{protocols}} } }
@@ -45,7 +45,7 @@ request
 =cut
 
 sub import {
-    my ($class, @args) = @_;
+    my (undef, @args) = @_;
 
     if (@args) {
         my %args = @args;
