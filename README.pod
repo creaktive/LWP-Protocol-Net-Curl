@@ -14,13 +14,37 @@ version 0.001
 
     #!/usr/bin/env perl;
     use common::sense;
-    use WWW::Mechanize;
+
     use LWP::Protocol::Net::Curl;
+    use WWW::Mechanize;
+
     ...
 
 =head1 DESCRIPTION
 
-...
+Drop-in replacement for L<LWP>, L<WWW::Mechanize> & derivatives to use L<Net::Curl> as a backend.
+
+Advantages:
+
+=over 4
+
+=item *
+
+support ftp/ftps/http/https/sftp/scp/SOCKS protocols out-of-box (if your L<libcurl|http://curl.haxx.se/> is compiled to support them)
+
+=item *
+
+lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression>
+
+=item *
+
+100% compatible with L<WWW::Mechanize> test suite
+
+=item *
+
+lower CPU/memory usage: this matters if you C<fork()> multiple downloader instances
+
+=back
 
 =for Pod::Coverage import
 request
@@ -31,15 +55,19 @@ request
 
 =item *
 
-L<LWP::Coro>
+L<LWP::Protocol::GHTTP> - used as a reference
 
 =item *
 
-L<LWP::Protocol::AnyEvent::http>
+L<LWP::Protocol::AnyEvent::http> - another reference
 
 =item *
 
-L<Net::Curl>
+L<Net::Curl> - backend for this module
+
+=item *
+
+L<LWP::Curl> - provides L<LWP::UserAgent>-compatible API for libcurl
 
 =back
 

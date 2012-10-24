@@ -5,13 +5,23 @@ package LWP::Protocol::Net::Curl;
 
     #!/usr/bin/env perl;
     use common::sense;
-    use WWW::Mechanize;
+
     use LWP::Protocol::Net::Curl;
+    use WWW::Mechanize;
+
     ...
 
 =head1 DESCRIPTION
 
-...
+Drop-in replacement for L<LWP>, L<WWW::Mechanize> & derivatives to use L<Net::Curl> as a backend.
+
+Advantages:
+
+=for :list
+* support ftp/ftps/http/https/sftp/scp/SOCKS protocols out-of-box (if your L<libcurl|http://curl.haxx.se/> is compiled to support them)
+* lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression>
+* 100% compatible with L<WWW::Mechanize> test suite
+* lower CPU/memory usage: this matters if you C<fork()> multiple downloader instances
 
 =cut
 
@@ -162,9 +172,10 @@ sub request {
 =head1 SEE ALSO
 
 =for :list
-* L<LWP::Coro>
-* L<LWP::Protocol::AnyEvent::http>
-* L<Net::Curl>
+* L<LWP::Protocol::GHTTP> - used as a reference
+* L<LWP::Protocol::AnyEvent::http> - another reference
+* L<Net::Curl> - backend for this module
+* L<LWP::Curl> - provides L<LWP::UserAgent>-compatible API for libcurl
 
 =cut
 
