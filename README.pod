@@ -46,8 +46,44 @@ lower CPU/memory usage: this matters if you C<fork()> multiple downloader instan
 
 =back
 
+=head1 LIBCURL INTERFACE
+
+You may query which L<LWP> protocols are implemented through L<Net::Curl> by accessing C<@LWP::Protocol::Net::Curl::implements>.
+
+Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_setopt.html> can be set during initialization:
+
+    use LWP::Protocol::Net::Curl
+        encoding => '', # use HTTP compression by default
+        referer => 'http://google.com/',
+        verbose => 1;   # make libcurl print lots of stuff to STDERR
+
+Options set this way have the lowest precedence.
+For instance, if L<WWW::Mechanize> sets the I<Referer:> by it's own, the value you defined above won't be used.
+
 =for Pod::Coverage import
 request
+
+=head1 TODO
+
+=over 4
+
+=item *
+
+better implementation for non-HTTP protocols
+
+=item *
+
+more tests
+
+=item *
+
+test exotic LWP usage cases
+
+=item *
+
+non-blocking version
+
+=back
 
 =head1 SEE ALSO
 

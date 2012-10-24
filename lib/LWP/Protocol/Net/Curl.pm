@@ -23,6 +23,20 @@ Advantages:
 * 100% compatible with L<WWW::Mechanize> test suite
 * lower CPU/memory usage: this matters if you C<fork()> multiple downloader instances
 
+=head1 LIBCURL INTERFACE
+
+You may query which L<LWP> protocols are implemented through L<Net::Curl> by accessing C<@LWP::Protocol::Net::Curl::implements>.
+
+Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_setopt.html> can be set during initialization:
+
+    use LWP::Protocol::Net::Curl
+        encoding => '', # use HTTP compression by default
+        referer => 'http://google.com/',
+        verbose => 1;   # make libcurl print lots of stuff to STDERR
+
+Options set this way have the lowest precedence.
+For instance, if L<WWW::Mechanize> sets the I<Referer:> by it's own, the value you defined above won't be used.
+
 =cut
 
 use strict;
@@ -129,9 +143,10 @@ sub request {
                 map { /^(?:x-)?(deflate|gzip|identity)$/ix ? lc $1 : () }
                 split /\s*,\s*/x, $value;
 
-            @encoding
-                and ++$encoding
-                and $easy->setopt(CURLOPT_ENCODING ,=> join(q(, ) => @encoding));
+            if (@encoding) {
+                ++$encoding;
+                $easy->setopt(CURLOPT_ENCODING ,=> join(q(, ) => @encoding));
+            }
         } else {
             $easy->pushopt(CURLOPT_HTTPHEADER ,=> [qq[$key: $value]]);
         }
@@ -168,6 +183,14 @@ sub request {
 
     return $self->collect_once($arg, $response, $data);
 }
+
+=head1 TODO
+
+=for :list
+* better implementation for non-HTTP protocols
+* more tests
+* test exotic LWP usage cases
+* non-blocking version
 
 =head1 SEE ALSO
 
