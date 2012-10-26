@@ -23,4 +23,10 @@ isa_ok($res, q(HTTP::Response));
 ok($res->is_success, q(is_success));
 like($res->decoded_content, qr/\b${now}\b/sx, q(content pingback));
 
-done_testing(3);
+$res = $ua->put($server->uri . q(echo/body));
+is($res->code, 200, q(PUT));
+
+$res = $ua->delete($server->uri . q(echo/body));
+is($res->code, 200, q(DELETE));
+
+done_testing(5);

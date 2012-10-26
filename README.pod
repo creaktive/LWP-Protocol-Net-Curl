@@ -8,7 +8,7 @@ LWP::Protocol::Net::Curl - the power of libcurl in the palm of your hands!
 
 =head1 VERSION
 
-version 0.001
+version 0.002
 
 =head1 SYNOPSIS
 
@@ -22,7 +22,7 @@ version 0.001
 
 =head1 DESCRIPTION
 
-Drop-in replacement for L<LWP>, L<WWW::Mechanize> & derivatives to use L<Net::Curl> as a backend.
+Drop-in replacement for L<LWP>, L<WWW::Mechanize> and their derivatives to use L<Net::Curl> as a backend.
 
 Advantages:
 
@@ -38,7 +38,7 @@ lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression
 
 =item *
 
-100% compatible with L<WWW::Mechanize> test suite
+100% compatible with both L<LWP> and L<WWW::Mechanize> test suites
 
 =item *
 

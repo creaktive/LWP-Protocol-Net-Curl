@@ -13,14 +13,14 @@ package LWP::Protocol::Net::Curl;
 
 =head1 DESCRIPTION
 
-Drop-in replacement for L<LWP>, L<WWW::Mechanize> & derivatives to use L<Net::Curl> as a backend.
+Drop-in replacement for L<LWP>, L<WWW::Mechanize> and their derivatives to use L<Net::Curl> as a backend.
 
 Advantages:
 
 =for :list
 * support ftp/ftps/http/https/sftp/scp/SOCKS protocols out-of-box (if your L<libcurl|http://curl.haxx.se/> is compiled to support them)
 * lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression>
-* 100% compatible with L<WWW::Mechanize> test suite
+* 100% compatible with both L<LWP> and L<WWW::Mechanize> test suites
 * lower CPU/memory usage: this matters if you C<fork()> multiple downloader instances
 
 =head1 LIBCURL INTERFACE
@@ -129,6 +129,13 @@ sub request {
         $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
     } elsif ($method eq q(HEAD)) {
         $easy->setopt(CURLOPT_NOBODY    ,=> 1);
+    } elsif ($method eq q(DELETE)) {
+        $easy->setopt(CURLOPT_CUSTOMREQUEST ,=> $method);
+    } elsif ($method eq q(PUT)) {
+        $easy->setopt(CURLOPT_UPLOAD        ,=> 1);
+        $easy->setopt(CURLOPT_READDATA      ,=> $request->content);
+        $easy->setopt(CURLOPT_INFILESIZE    ,=> length $request->content);
+        $easy->pushopt(CURLOPT_HTTPHEADER   ,=> [qq[Expect:]]); # mimic LWP behavior
     } else {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
@@ -138,6 +145,11 @@ sub request {
 
     $request->headers->scan(sub {
         my ($key, $value) = @_;
+
+        # stolen from LWP::Protocol::http
+        $key =~ s/^://x;
+        $value =~ s/\n/ /gx;
+
         if ($key =~ /^accept-encoding$/ix) {
             my @encoding =
                 map { /^(?:x-)?(deflate|gzip|identity)$/ix ? lc $1 : () }
