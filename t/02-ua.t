@@ -3,6 +3,7 @@ use strict;
 use utf8;
 use warnings qw(all);
 
+use FindBin qw($Bin $Script);
 use LWP::Protocol::Net::Curl;
 use LWP::UserAgent;
 use Test::HTTP::Server;
@@ -29,4 +30,11 @@ is($res->code, 200, q(PUT));
 $res = $ua->delete($server->uri . q(echo/body));
 is($res->code, 200, q(DELETE));
 
-done_testing(5);
+$res = $ua->request(HTTP::Request->new(DUMMY => $server->uri . q(echo/body)));
+is($res->code, 400, q(unsupported method));
+
+LWP::Protocol::implementor(file => q(LWP::Protocol::Net::Curl));
+$res = $ua->get(qq(file://$Bin/$Script), q(Accept-Encoding) => q(dummy));
+is(length $res->content, -s __FILE__, q(quine));
+
+done_testing(7);

@@ -115,14 +115,6 @@ sub request {
         $easy->setopt($key, $value);
     }
 
-    $easy->setopt(CURLOPT_BUFFERSIZE        ,=> $size)
-        if defined $size and $size;
-    $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout)
-        if defined $timeout and $timeout;
-
-    #$easy->setopt(CURLOPT_NOPROGRESS        ,=> 0);
-    #$easy->setopt(CURLOPT_PROGRESSFUNCTION  ,=> sub {});
-
     # SSL stuff, may not be compiled
     if ($request->uri->scheme =~ /s$/ix) {
         $easy->setopt(_curlopt(q(CAINFO))           => $self->{ua}{ssl_opts}{SSL_ca_file});
@@ -130,20 +122,24 @@ sub request {
         $easy->setopt(_curlopt(q(SSL_VERIFYHOST))   => $self->{ua}{ssl_opts}{verify_hostname});
     }
 
+    $easy->setopt(CURLOPT_BUFFERSIZE        ,=> $size);
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
     $easy->setopt(CURLOPT_FOLLOWLOCATION    ,=> 0);
-    $easy->setopt(CURLOPT_PROXY             ,=> ref($proxy) =~ /^URI\b/x ? $proxy->as_string : '');
+    $easy->setopt(CURLOPT_INTERFACE         ,=> $self->{ua}{local_address});
+    $easy->setopt(CURLOPT_MAXFILESIZE       ,=> $self->{ua}{max_size});
+    $easy->setopt(CURLOPT_PROXY             ,=> $proxy);
+    $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
     $easy->setopt(CURLOPT_WRITEDATA         ,=> \$data);
     $easy->setopt(CURLOPT_WRITEHEADER       ,=> \$header);
 
     my $method = uc $request->method;
     if ($method eq q(GET)) {
-        $easy->setopt(CURLOPT_HTTPGET   ,=> 1);
+        $easy->setopt(CURLOPT_HTTPGET       ,=> 1);
     } elsif ($method eq q(POST)) {
-        $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
+        $easy->setopt(CURLOPT_POSTFIELDS    ,=> $request->content);
     } elsif ($method eq q(HEAD)) {
-        $easy->setopt(CURLOPT_NOBODY    ,=> 1);
+        $easy->setopt(CURLOPT_NOBODY        ,=> 1);
     } elsif ($method eq q(DELETE)) {
         $easy->setopt(CURLOPT_CUSTOMREQUEST ,=> $method);
     } elsif ($method eq q(PUT)) {
@@ -154,7 +150,7 @@ sub request {
     } else {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
-            qq(Bad method '$_')
+            qq(Bad method '$method')
         );
     }
 
