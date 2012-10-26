@@ -13,7 +13,7 @@ my $server = Test::HTTP::Server->new;
 
 my $now = time;
 
-my $ua = LWP::UserAgent->new;
+my $ua = LWP::UserAgent->new(keep_alive => 4);
 my $res = $ua->post(
     $server->uri . q(echo/body),
     q(Accept-Encoding) => q(gzip, bzip2),

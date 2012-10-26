@@ -30,9 +30,10 @@ You may query which L<LWP> protocols are implemented through L<Net::Curl> by acc
 Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_setopt.html> can be set during initialization:
 
     use LWP::Protocol::Net::Curl
-        encoding => '', # use HTTP compression by default
-        referer => 'http://google.com/',
-        verbose => 1;   # make libcurl print lots of stuff to STDERR
+        encoding    => '',  # use HTTP compression by default
+        maxconnects => 5,   # force persistent connection cache usage
+        referer     => 'http://google.com/',
+        verbose     => 1;   # make libcurl print lots of stuff to STDERR
 
 Options set this way have the lowest precedence.
 For instance, if L<WWW::Mechanize> sets the I<Referer:> by it's own, the value you defined above won't be used.
@@ -48,6 +49,7 @@ use base qw(LWP::Protocol);
 use Carp qw(carp);
 use HTTP::Date;
 use Net::Curl::Easy qw(:constants);
+use Net::Curl::Multi qw(:constants);
 use Scalar::Util qw(looks_like_number);
 
 # VERSION
@@ -105,9 +107,14 @@ sub import {
 sub request {
     my ($self, $request, $proxy, $arg, $size, $timeout) = @_;
 
+    $self->{ua}{curl_multi} = Net::Curl::Multi->new if
+        (looks_like_number($curlopt{maxconnects}) or ref($self->{ua}{conn_cache}))
+        and ref($self->{ua}{curl_multi}) ne q(Net::Curl::Multi);
+
     my $data = '';
     my $header = '';
     my $easy = Net::Curl::Easy->new;
+    $self->{ua}{curl_multi}->add_handle($easy) if ref $self->{ua}{curl_multi};
 
     my $encoding = 0;
     while (my ($key, $value) = each %curlopt) {
@@ -176,7 +183,9 @@ sub request {
     });
 
     my $status = eval { $easy->perform; 0 };
-    if (not defined $status or $@) {
+    my $error = $@;
+    $self->{ua}{curl_multi}->remove_handle($easy) if ref $self->{ua}{curl_multi};
+    if (not defined $status or $error) {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
             qq($@)
