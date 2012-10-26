@@ -67,6 +67,24 @@ import
 request
 =cut
 
+sub _curlopt {
+    my ($key) = @_;
+
+    $key =~ s/^Net::Curl::Easy:://ix;
+    $key =~ y/-/_/;
+    $key =~ s/\W//gx;
+    $key = uc $key;
+    $key = qq(CURLOPT_${key}) if $key !~ /^CURLOPT_/x;
+
+    my $const = eval {
+        no strict qw(refs); ## no critic
+        return *$key->();
+    };
+    carp qq(Invalid libcurl constant: $key) if not defined $const or $@;
+
+    return $const;
+}
+
 sub import {
     my (undef, @args) = @_;
 
@@ -76,17 +94,7 @@ sub import {
             if (looks_like_number($key)) {
                 $curlopt{$key} = $value;
             } else {
-                $key =~ s/^Net::Curl::Easy:://ix;
-                $key =~ y/-/_/;
-                $key =~ s/\W//gx;
-                $key = uc $key;
-                $key = qq(CURLOPT_${key}) if $key !~ /^CURLOPT_/x;
-
-                eval {
-                    no strict qw(refs); ## no critic
-                    $curlopt{*$key->()} = $value;
-                };
-                carp qq(Invalid libcurl constant: $key) if $@;
+                $curlopt{_curlopt($key)} = $value;
             }
         }
     }
@@ -114,6 +122,13 @@ sub request {
 
     #$easy->setopt(CURLOPT_NOPROGRESS        ,=> 0);
     #$easy->setopt(CURLOPT_PROGRESSFUNCTION  ,=> sub {});
+
+    # SSL stuff, may not be compiled
+    if ($request->uri->scheme =~ /s$/ix) {
+        $easy->setopt(_curlopt(q(CAINFO))           => $self->{ua}{ssl_opts}{SSL_ca_file});
+        $easy->setopt(_curlopt(q(CAPATH))           => $self->{ua}{ssl_opts}{SSL_ca_path});
+        $easy->setopt(_curlopt(q(SSL_VERIFYHOST))   => $self->{ua}{ssl_opts}{verify_hostname});
+    }
 
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
     $easy->setopt(CURLOPT_FOLLOWLOCATION    ,=> 0);
