@@ -19,9 +19,10 @@ Advantages:
 
 =for :list
 * support ftp/ftps/http/https/sftp/scp/SOCKS protocols out-of-box (if your L<libcurl|http://curl.haxx.se/> is compiled to support them)
-* lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression>
+* lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression> and redirection
 * 100% compatible with both L<LWP> and L<WWW::Mechanize> test suites
-* lower CPU/memory usage: this matters if you C<fork()> multiple downloader instances
+* lower CPU usage: this matters if you C<fork()> multiple downloader instances
+* uses L<Net::Curl::Multi> for persistent connections (optionally)
 
 =head1 LIBCURL INTERFACE
 
@@ -37,6 +38,14 @@ Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_set
 
 Options set this way have the lowest precedence.
 For instance, if L<WWW::Mechanize> sets the I<Referer:> by it's own, the value you defined above won't be used.
+
+=head1 DEBUGGING
+
+Quickly enable libcurl I<verbose> mode via C<PERL5OPT> environment variable:
+
+    PERL5OPT=-MLWP::Protocol::Net::Curl=verbose,1 perl your-script.pl
+
+B<Bonus:> it works even if you don't include the C<use LWP::Protocol::Net::Curl> line!
 
 =cut
 
@@ -107,14 +116,15 @@ sub import {
 sub request {
     my ($self, $request, $proxy, $arg, $size, $timeout) = @_;
 
-    $self->{ua}{curl_multi} = Net::Curl::Multi->new if
-        (looks_like_number($curlopt{maxconnects}) or ref($self->{ua}{conn_cache}))
-        and ref($self->{ua}{curl_multi}) ne q(Net::Curl::Multi);
+    my $ua = $self->{ua};
+    $ua->{curl_multi} = Net::Curl::Multi->new if
+        (looks_like_number($curlopt{maxconnects}) or ref($ua->conn_cache))
+        and ref($ua->{curl_multi}) ne q(Net::Curl::Multi);
 
     my $data = '';
     my $header = '';
     my $easy = Net::Curl::Easy->new;
-    $self->{ua}{curl_multi}->add_handle($easy) if ref $self->{ua}{curl_multi};
+    $ua->{curl_multi}->add_handle($easy) if ref $ua->{curl_multi};
 
     my $encoding = 0;
     while (my ($key, $value) = each %curlopt) {
@@ -124,16 +134,15 @@ sub request {
 
     # SSL stuff, may not be compiled
     if ($request->uri->scheme =~ /s$/ix) {
-        $easy->setopt(_curlopt(q(CAINFO))           => $self->{ua}{ssl_opts}{SSL_ca_file});
-        $easy->setopt(_curlopt(q(CAPATH))           => $self->{ua}{ssl_opts}{SSL_ca_path});
-        $easy->setopt(_curlopt(q(SSL_VERIFYHOST))   => $self->{ua}{ssl_opts}{verify_hostname});
+        $easy->setopt(_curlopt(q(CAINFO))           => $ua->{ssl_opts}{SSL_ca_file});
+        $easy->setopt(_curlopt(q(CAPATH))           => $ua->{ssl_opts}{SSL_ca_path});
+        $easy->setopt(_curlopt(q(SSL_VERIFYHOST))   => $ua->{ssl_opts}{verify_hostname});
     }
 
     $easy->setopt(CURLOPT_BUFFERSIZE        ,=> $size);
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
-    $easy->setopt(CURLOPT_FOLLOWLOCATION    ,=> 0);
-    $easy->setopt(CURLOPT_INTERFACE         ,=> $self->{ua}{local_address});
-    $easy->setopt(CURLOPT_MAXFILESIZE       ,=> $self->{ua}{max_size});
+    $easy->setopt(CURLOPT_INTERFACE         ,=> $ua->local_address);
+    $easy->setopt(CURLOPT_MAXFILESIZE       ,=> $ua->max_size);
     $easy->setopt(CURLOPT_PROXY             ,=> $proxy);
     $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
@@ -145,6 +154,7 @@ sub request {
         $easy->setopt(CURLOPT_HTTPGET       ,=> 1);
     } elsif ($method eq q(POST)) {
         $easy->setopt(CURLOPT_POSTFIELDS    ,=> $request->content);
+        $easy->setopt(CURLOPT_POSTREDIR     ,=> CURL_REDIR_POST_ALL);
     } elsif ($method eq q(HEAD)) {
         $easy->setopt(CURLOPT_NOBODY        ,=> 1);
     } elsif ($method eq q(DELETE)) {
@@ -153,13 +163,23 @@ sub request {
         $easy->setopt(CURLOPT_UPLOAD        ,=> 1);
         $easy->setopt(CURLOPT_READDATA      ,=> $request->content);
         $easy->setopt(CURLOPT_INFILESIZE    ,=> length $request->content);
-        $easy->pushopt(CURLOPT_HTTPHEADER   ,=> [qq[Expect:]]); # mimic LWP behavior
     } else {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
             qq(Bad method '$method')
         );
     }
+
+    # handle redirects internally
+    if (grep { $method eq uc } @{$ua->requests_redirectable}) {
+        $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 1);
+        $easy->setopt(CURLOPT_MAXREDIRS     ,=> $ua->max_redirect);
+    } else {
+        $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 0);
+    }
+
+    # mimic LWP behavior
+    $easy->pushopt(CURLOPT_HTTPHEADER       ,=> [qq[Expect:]]);
 
     $request->headers->scan(sub {
         my ($key, $value) = @_;
@@ -183,12 +203,14 @@ sub request {
     });
 
     my $status = eval { $easy->perform; 0 };
-    my $error = $@;
-    $self->{ua}{curl_multi}->remove_handle($easy) if ref $self->{ua}{curl_multi};
-    if (not defined $status or $error) {
+    my $error = looks_like_number($@) ? 0 + $@ : 0;
+    $ua->{curl_multi}->remove_handle($easy) if ref $ua->{curl_multi};
+    if ($error == CURLE_TOO_MANY_REDIRECTS) {
+        # will return the last request
+    } elsif (not defined $status or $error) {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
-            qq($@)
+            Net::Curl::Easy::strerror($error)
         );
     }
 

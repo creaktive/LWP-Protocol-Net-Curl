@@ -34,7 +34,7 @@ support ftp/ftps/http/https/sftp/scp/SOCKS protocols out-of-box (if your L<libcu
 
 =item *
 
-lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression>
+lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression> and redirection
 
 =item *
 
@@ -42,7 +42,11 @@ lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression
 
 =item *
 
-lower CPU/memory usage: this matters if you C<fork()> multiple downloader instances
+lower CPU usage: this matters if you C<fork()> multiple downloader instances
+
+=item *
+
+uses L<Net::Curl::Multi> for persistent connections (optionally)
 
 =back
 
@@ -53,12 +57,21 @@ You may query which L<LWP> protocols are implemented through L<Net::Curl> by acc
 Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_setopt.html> can be set during initialization:
 
     use LWP::Protocol::Net::Curl
-        encoding => '', # use HTTP compression by default
-        referer => 'http://google.com/',
-        verbose => 1;   # make libcurl print lots of stuff to STDERR
+        encoding    => '',  # use HTTP compression by default
+        maxconnects => 5,   # force persistent connection cache usage
+        referer     => 'http://google.com/',
+        verbose     => 1;   # make libcurl print lots of stuff to STDERR
 
 Options set this way have the lowest precedence.
 For instance, if L<WWW::Mechanize> sets the I<Referer:> by it's own, the value you defined above won't be used.
+
+=head1 DEBUGGING
+
+Quickly enable libcurl I<verbose> mode via C<PERL5OPT> environment variable:
+
+    PERL5OPT=-MLWP::Protocol::Net::Curl=verbose,1 perl your-script.pl
+
+B<Bonus:> it works even if you don't include the C<use LWP::Protocol::Net::Curl> line!
 
 =for Pod::Coverage import
 request
