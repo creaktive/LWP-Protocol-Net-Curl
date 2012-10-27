@@ -13,8 +13,9 @@ my $server = Test::HTTP::Server->new;
 
 my $ua = LWP::UserAgent->new(keep_alive => 4);
 
-my $file = File::Temp->new(UNLINK => 0);
+my $file = File::Temp->new(UNLINK => 1);
 
+#$ua->show_progress(1);
 #diag($file->filename);
 #chmod 0, $file->filename;
 

@@ -57,6 +57,7 @@ use base qw(LWP::Protocol);
 
 use Carp qw(carp);
 use HTTP::Date;
+use LWP::UserAgent;
 use Net::Curl::Easy qw(:constants);
 use Net::Curl::Multi qw(:constants);
 use Scalar::Util qw(looks_like_number);
@@ -72,6 +73,13 @@ LWP::Protocol::implementor($_ => __PACKAGE__)
     for @implements;
 
 our %curlopt;
+
+{
+    no strict qw(refs);         ## no critic
+    no warnings qw(redefine);   ## no critic
+
+    *{'LWP::UserAgent::progress'} = sub {};
+}
 
 =for Pod::Coverage
 import
@@ -151,6 +159,8 @@ sub request {
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
     $easy->setopt(CURLOPT_INTERFACE         ,=> $ua->local_address);
     $easy->setopt(CURLOPT_MAXFILESIZE       ,=> $ua->max_size);
+    $easy->setopt(CURLOPT_NOPROGRESS        ,=> not $ua->show_progress);
+    $easy->setopt(CURLOPT_NOPROXY           ,=> join(q(,) => @{$ua->{no_proxy}}));
     $easy->setopt(CURLOPT_PROXY             ,=> $proxy);
     $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
