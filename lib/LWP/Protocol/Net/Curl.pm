@@ -123,6 +123,14 @@ sub request {
 
     my $data = '';
     my $header = '';
+    my $writedata = \$data;
+
+    if (ref($arg) eq '' and $arg) {
+        # will die() later
+        open my $fh, q(>:raw), $arg; ## no critic
+        $writedata = $fh;
+    }
+
     my $easy = Net::Curl::Easy->new;
     $ua->{curl_multi}->add_handle($easy) if ref $ua->{curl_multi};
 
@@ -146,7 +154,7 @@ sub request {
     $easy->setopt(CURLOPT_PROXY             ,=> $proxy);
     $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
-    $easy->setopt(CURLOPT_WRITEDATA         ,=> \$data);
+    $easy->setopt(CURLOPT_WRITEDATA         ,=> $writedata);
     $easy->setopt(CURLOPT_WRITEHEADER       ,=> \$header);
 
     my $method = uc $request->method;
@@ -226,7 +234,7 @@ sub request {
     $response->message($msg);
 
     # handle decoded_content()
-    if ($encoding) {
+    if ($encoding and q(SCALAR) eq ref $writedata) {
         $response->headers->header(content_encoding => q(identity));
         $response->headers->header(content_length => length $data);
     }
