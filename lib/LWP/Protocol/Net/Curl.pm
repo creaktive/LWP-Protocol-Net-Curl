@@ -18,11 +18,12 @@ Drop-in replacement for L<LWP>, L<WWW::Mechanize> and their derivatives to use L
 Advantages:
 
 =for :list
-* support ftp/ftps/http/https/sftp/scp/SOCKS protocols out-of-box (if your L<libcurl|http://curl.haxx.se/> is compiled to support them)
+* support ftp/ftps/http/https/sftp/scp protocols out-of-box (secure layer require L<libcurl|http://curl.haxx.se/> to be compiled with TLS/SSL/libssh2 support)
+* support SOCKS4/5 proxy out-of-box
+* connection persistence and DNS cache
 * lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression> and redirection
-* 100% compatible with both L<LWP> and L<WWW::Mechanize> test suites
 * lower CPU usage: this matters if you C<fork()> multiple downloader instances
-* uses L<Net::Curl::Multi> for persistent connections (optionally)
+* at last but not least: B<100% compatible> with both L<LWP> and L<WWW::Mechanize> test suites!
 
 =head1 LIBCURL INTERFACE
 
@@ -32,7 +33,6 @@ Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_set
 
     use LWP::Protocol::Net::Curl
         encoding    => '',  # use HTTP compression by default
-        maxconnects => 5,   # force persistent connection cache usage
         referer     => 'http://google.com/',
         verbose     => 1;   # make libcurl print lots of stuff to STDERR
 
@@ -92,6 +92,15 @@ import
 request
 =cut
 
+sub DESTROY {
+    my ($self) = @_;
+
+    undef $share;
+    delete $self->{ua}{curl_multi};
+
+    return;
+}
+
 sub _curlopt {
     my ($key) = @_;
 
@@ -131,9 +140,8 @@ sub request {
     my ($self, $request, $proxy, $arg, $size, $timeout) = @_;
 
     my $ua = $self->{ua};
-    $ua->{curl_multi} = Net::Curl::Multi->new if
-        (looks_like_number($curlopt{maxconnects}) or ref($ua->conn_cache))
-        and ref($ua->{curl_multi}) ne q(Net::Curl::Multi);
+    $ua->{curl_multi} = Net::Curl::Multi->new
+        if ref($ua->{curl_multi}) ne q(Net::Curl::Multi);
 
     my $data = '';
     my $header = '';
@@ -180,7 +188,6 @@ sub request {
         $easy->setopt(CURLOPT_HTTPGET       ,=> 1);
     } elsif ($method eq q(POST)) {
         $easy->setopt(CURLOPT_POSTFIELDS    ,=> $request->content);
-        #$easy->setopt(CURLOPT_POSTREDIR     ,=> CURL_REDIR_POST_ALL);
     } elsif ($method eq q(HEAD)) {
         $easy->setopt(CURLOPT_NOBODY        ,=> 1);
     } elsif ($method eq q(DELETE)) {
@@ -196,17 +203,14 @@ sub request {
         );
     }
 
-    # handle redirects internally
-    if (grep { $method eq uc } @{$ua->requests_redirectable}) {
+    # handle redirects internally (except POST, greatly fsck'd up by IIS servers)
+    if ($method ne q(POST) and grep { $method eq uc } @{$ua->requests_redirectable}) {
         $easy->setopt(CURLOPT_AUTOREFERER   ,=> 1);
         $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 1);
         $easy->setopt(CURLOPT_MAXREDIRS     ,=> $ua->max_redirect);
     } else {
         $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 0);
     }
-
-    # mimic LWP behavior
-    #$easy->pushopt(CURLOPT_HTTPHEADER       ,=> [qq[Expect:]]);
 
     $request->headers->scan(sub {
         my ($key, $value) = @_;
@@ -261,6 +265,12 @@ sub request {
     }
     $response->request($request);
 
+    my $time = $easy->getinfo(CURLINFO_FILETIME);
+    $response->headers->header(last_modified => time2str($time))
+        if $time > 0;
+
+    undef $easy;
+
     # handle decoded_content() & direct file write
     if (q(GLOB) eq ref $writedata) {
         $writedata->sync;
@@ -268,10 +278,6 @@ sub request {
         $response->headers->header(content_encoding => q(identity));
         $response->headers->header(content_length   => length $data);
     }
-
-    my $time = $easy->getinfo(CURLINFO_FILETIME);
-    $response->headers->header(last_modified => time2str($time))
-        if $time > 0;
 
     return $self->collect_once($arg, $response, $data);
 }

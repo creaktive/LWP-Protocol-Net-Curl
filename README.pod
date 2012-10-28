@@ -30,7 +30,15 @@ Advantages:
 
 =item *
 
-support ftp/ftps/http/https/sftp/scp/SOCKS protocols out-of-box (if your L<libcurl|http://curl.haxx.se/> is compiled to support them)
+support ftp/ftps/http/https/sftp/scp protocols out-of-box (secure layer require L<libcurl|http://curl.haxx.se/> to be compiled with TLS/SSL/libssh2 support)
+
+=item *
+
+support SOCKS4/5 proxy out-of-box
+
+=item *
+
+connection persistence and DNS cache
 
 =item *
 
@@ -38,15 +46,11 @@ lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression
 
 =item *
 
-100% compatible with both L<LWP> and L<WWW::Mechanize> test suites
-
-=item *
-
 lower CPU usage: this matters if you C<fork()> multiple downloader instances
 
 =item *
 
-uses L<Net::Curl::Multi> for persistent connections (optionally)
+at last but not least: B<100% compatible> with both L<LWP> and L<WWW::Mechanize> test suites!
 
 =back
 
@@ -58,7 +62,6 @@ Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_set
 
     use LWP::Protocol::Net::Curl
         encoding    => '',  # use HTTP compression by default
-        maxconnects => 5,   # force persistent connection cache usage
         referer     => 'http://google.com/',
         verbose     => 1;   # make libcurl print lots of stuff to STDERR
 

@@ -4,7 +4,7 @@ use utf8;
 use warnings qw(all);
 
 use File::Temp qw(:seekable);
-use LWP::Protocol::Net::Curl maxconnects => 1, encoding => '';
+use LWP::Protocol::Net::Curl encoding => '';
 use LWP::UserAgent;
 use Test::HTTP::Server;
 use Test::More;
