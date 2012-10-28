@@ -139,7 +139,7 @@ sub request {
     my $header = '';
     my $writedata = \$data;
 
-    if (ref($arg) eq '' and $arg) {
+    if (defined $arg and '' eq ref $arg) {
         # will die() later
         open my ($fh), q(+>:raw), $arg; ## no critic
         $fh->autoflush(1);
