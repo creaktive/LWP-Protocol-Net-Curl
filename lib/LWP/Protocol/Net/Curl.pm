@@ -61,6 +61,7 @@ use IO::Handle;
 use LWP::UserAgent;
 use Net::Curl::Easy qw(:constants);
 use Net::Curl::Multi qw(:constants);
+use Net::Curl::Share qw(:constants);
 use Scalar::Util qw(looks_like_number);
 
 # VERSION
@@ -74,6 +75,10 @@ LWP::Protocol::implementor($_ => __PACKAGE__)
     for @implements;
 
 our %curlopt;
+our $share = Net::Curl::Share->new;
+$share->setopt(CURLSHOPT_SHARE  ,=> CURL_LOCK_DATA_COOKIE);
+$share->setopt(CURLSHOPT_SHARE  ,=> CURL_LOCK_DATA_DNS);
+eval { $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
 
 {
     no strict qw(refs);         ## no critic
@@ -164,6 +169,7 @@ sub request {
     $easy->setopt(CURLOPT_NOPROGRESS        ,=> not $ua->show_progress);
     $easy->setopt(CURLOPT_NOPROXY           ,=> join(q(,) => @{$ua->{no_proxy}}));
     $easy->setopt(CURLOPT_PROXY             ,=> $proxy);
+    $easy->setopt(CURLOPT_SHARE             ,=> $share);
     $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
     $easy->setopt(CURLOPT_WRITEDATA         ,=> $writedata);
@@ -174,7 +180,7 @@ sub request {
         $easy->setopt(CURLOPT_HTTPGET       ,=> 1);
     } elsif ($method eq q(POST)) {
         $easy->setopt(CURLOPT_POSTFIELDS    ,=> $request->content);
-        $easy->setopt(CURLOPT_POSTREDIR     ,=> CURL_REDIR_POST_ALL);
+        #$easy->setopt(CURLOPT_POSTREDIR     ,=> CURL_REDIR_POST_ALL);
     } elsif ($method eq q(HEAD)) {
         $easy->setopt(CURLOPT_NOBODY        ,=> 1);
     } elsif ($method eq q(DELETE)) {
@@ -200,7 +206,7 @@ sub request {
     }
 
     # mimic LWP behavior
-    $easy->pushopt(CURLOPT_HTTPHEADER       ,=> [qq[Expect:]]);
+    #$easy->pushopt(CURLOPT_HTTPHEADER       ,=> [qq[Expect:]]);
 
     $request->headers->scan(sub {
         my ($key, $value) = @_;
@@ -255,7 +261,7 @@ sub request {
     }
     $response->request($request);
 
-    # handle decoded_content()
+    # handle decoded_content() & direct file write
     if (q(GLOB) eq ref $writedata) {
         $writedata->sync;
     } elsif ($encoding) {
