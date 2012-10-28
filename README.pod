@@ -38,7 +38,7 @@ support SOCKS4/5 proxy out-of-box
 
 =item *
 
-connection persistence and DNS cache
+connection persistence and DNS cache (independent from L<LWP::ConnCache>)
 
 =item *
 

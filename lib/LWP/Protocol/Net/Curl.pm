@@ -88,15 +88,6 @@ import
 request
 =cut
 
-sub DESTROY {
-    my ($self) = @_;
-
-    delete $self->{ua}{curl_multi};
-    delete $self->{ua}{curl_share};
-
-    return;
-}
-
 sub _curlopt {
     my ($key) = @_;
 
@@ -156,7 +147,7 @@ sub request {
     }
 
     my $easy = Net::Curl::Easy->new;
-    $ua->{curl_multi}->add_handle($easy) if ref $ua->{curl_multi};
+    $ua->{curl_multi}->add_handle($easy);
 
     my $encoding = 0;
     while (my ($key, $value) = each %curlopt) {
@@ -238,7 +229,7 @@ sub request {
 
     my $status = eval { $easy->perform; 0 };
     my $error = looks_like_number($@) ? 0 + $@ : 0;
-    $ua->{curl_multi}->remove_handle($easy) if ref $ua->{curl_multi};
+    $ua->{curl_multi}->remove_handle($easy);
     if ($error == CURLE_TOO_MANY_REDIRECTS) {
         # will return the last request
     } elsif (not defined $status or $error) {
