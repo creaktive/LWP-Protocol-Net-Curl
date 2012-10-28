@@ -20,7 +20,7 @@ Advantages:
 =for :list
 * support ftp/ftps/http/https/sftp/scp protocols out-of-box (secure layer require L<libcurl|http://curl.haxx.se/> to be compiled with TLS/SSL/libssh2 support)
 * support SOCKS4/5 proxy out-of-box
-* connection persistence and DNS cache
+* connection persistence and DNS cache (independent from L<LWP::ConnCache>)
 * lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression> and redirection
 * lower CPU usage: this matters if you C<fork()> multiple downloader instances
 * at last but not least: B<100% compatible> with both L<LWP> and L<WWW::Mechanize> test suites!
@@ -75,10 +75,6 @@ LWP::Protocol::implementor($_ => __PACKAGE__)
     for @implements;
 
 our %curlopt;
-our $share = Net::Curl::Share->new;
-$share->setopt(CURLSHOPT_SHARE  ,=> CURL_LOCK_DATA_COOKIE);
-$share->setopt(CURLSHOPT_SHARE  ,=> CURL_LOCK_DATA_DNS);
-eval { $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
 
 {
     no strict qw(refs);         ## no critic
@@ -95,8 +91,8 @@ request
 sub DESTROY {
     my ($self) = @_;
 
-    undef $share;
     delete $self->{ua}{curl_multi};
+    delete $self->{ua}{curl_share};
 
     return;
 }
@@ -140,8 +136,13 @@ sub request {
     my ($self, $request, $proxy, $arg, $size, $timeout) = @_;
 
     my $ua = $self->{ua};
-    $ua->{curl_multi} = Net::Curl::Multi->new
-        if ref($ua->{curl_multi}) ne q(Net::Curl::Multi);
+    if (q(Net::Curl::Multi) ne ref $ua->{curl_multi}) {
+        $ua->{curl_multi} = Net::Curl::Multi->new;
+        $ua->{curl_share} = Net::Curl::Share->new;
+        $ua->{curl_share}->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_COOKIE);
+        $ua->{curl_share}->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_DNS);
+        eval { $ua->{curl_share}->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
+    }
 
     my $data = '';
     my $header = '';
@@ -177,7 +178,7 @@ sub request {
     $easy->setopt(CURLOPT_NOPROGRESS        ,=> not $ua->show_progress);
     $easy->setopt(CURLOPT_NOPROXY           ,=> join(q(,) => @{$ua->{no_proxy}}));
     $easy->setopt(CURLOPT_PROXY             ,=> $proxy);
-    $easy->setopt(CURLOPT_SHARE             ,=> $share);
+    $easy->setopt(CURLOPT_SHARE             ,=> $ua->{curl_share});
     $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
     $easy->setopt(CURLOPT_WRITEDATA         ,=> $writedata);
