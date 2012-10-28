@@ -57,6 +57,7 @@ use base qw(LWP::Protocol);
 
 use Carp qw(carp);
 use HTTP::Date;
+use IO::Handle;
 use LWP::UserAgent;
 use Net::Curl::Easy qw(:constants);
 use Net::Curl::Multi qw(:constants);
@@ -135,7 +136,8 @@ sub request {
 
     if (ref($arg) eq '' and $arg) {
         # will die() later
-        open my $fh, q(>:raw), $arg; ## no critic
+        open my ($fh), q(+>:raw), $arg; ## no critic
+        $fh->autoflush(1);
         $writedata = $fh;
     }
 
@@ -190,6 +192,7 @@ sub request {
 
     # handle redirects internally
     if (grep { $method eq uc } @{$ua->requests_redirectable}) {
+        $easy->setopt(CURLOPT_AUTOREFERER   ,=> 1);
         $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 1);
         $easy->setopt(CURLOPT_MAXREDIRS     ,=> $ua->max_redirect);
     } else {
@@ -204,7 +207,7 @@ sub request {
 
         # stolen from LWP::Protocol::http
         $key =~ s/^://x;
-        $value =~ s/\n/ /gx;
+        $value =~ s/\n/ /gx if defined $value;
 
         if ($key =~ /^accept-encoding$/ix) {
             my @encoding =
@@ -213,10 +216,12 @@ sub request {
 
             if (@encoding) {
                 ++$encoding;
-                $easy->setopt(CURLOPT_ENCODING ,=> join(q(, ) => @encoding));
+                $easy->setopt(CURLOPT_ENCODING  ,=> join(q(,) => @encoding));
             }
+        } elsif ($key =~ /^user-agent$/ix and $value eq $ua->_agent) {
+            $easy->setopt(CURLOPT_USERAGENT     ,=> $ua->_agent . ' ' . Net::Curl::version);
         } else {
-            $easy->pushopt(CURLOPT_HTTPHEADER ,=> [qq[$key: $value]]);
+            $easy->pushopt(CURLOPT_HTTPHEADER   ,=> [qq[$key: $value]]);
         }
     });
 
@@ -232,21 +237,30 @@ sub request {
         );
     }
 
-    my $response = HTTP::Response->parse(
-        $request->uri->scheme =~ /^https?$/ix
-            ? $header
-            : qq(200 OK\n\n)
-    );
+    my $response;
+    if ($request->uri->scheme =~ /^https?$/ix) {
+        my $previous = undef;
+        my @header = split /(?:\015\012?|\012\015){2}/sx, $header;
+        for my $h (@header) {
+            $response = HTTP::Response->parse($h);
+            my $msg = defined $response->message ? $response->message : '';
+            $msg =~ s/^\s+|\s+$//gsx;
+            $response->message($msg);
+
+            $response->previous($previous);
+            $previous = $response;
+        }
+    } else {
+        $response = HTTP::Response->new(&HTTP::Status::RC_OK);
+    }
     $response->request($request);
 
-    my $msg = defined $response->message ? $response->message : '';
-    $msg =~ s/^\s+|\s+$//gsx;
-    $response->message($msg);
-
     # handle decoded_content()
-    if ($encoding and q(SCALAR) eq ref $writedata) {
+    if (q(GLOB) eq ref $writedata) {
+        $writedata->sync;
+    } elsif ($encoding) {
         $response->headers->header(content_encoding => q(identity));
-        $response->headers->header(content_length => length $data);
+        $response->headers->header(content_length   => length $data);
     }
 
     my $time = $easy->getinfo(CURLINFO_FILETIME);
