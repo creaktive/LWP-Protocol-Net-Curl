@@ -17,6 +17,7 @@ my $ua = LWP::UserAgent->new(keep_alive => 4);
 my $res = $ua->post(
     $server->uri . q(echo/body),
     q(Accept-Encoding) => q(gzip, bzip2),
+    Skipped => undef,
     Content => { a => 1, b => 2, c => 3, time => $now },
 );
 

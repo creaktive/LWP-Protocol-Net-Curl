@@ -101,7 +101,7 @@ sub _curlopt {
         no strict qw(refs); ## no critic
         return *$key->();
     };
-    carp qq(Invalid libcurl constant: $key) if not defined $const or $@;
+    carp qq(Invalid libcurl constant: $key) if $@;
 
     return $const;
 }
@@ -139,15 +139,45 @@ sub request {
     my $header = '';
     my $writedata = \$data;
 
-    if (defined $arg and '' eq ref $arg) {
-        # will die() later
-        open my ($fh), q(+>:raw), $arg; ## no critic
-        $fh->autoflush(1);
-        $writedata = $fh;
-    }
-
     my $easy = Net::Curl::Easy->new;
     $ua->{curl_multi}->add_handle($easy);
+
+    my $previous = undef;
+    my $response = HTTP::Response->new(&HTTP::Status::RC_OK);
+    $easy->setopt(CURLOPT_HEADERFUNCTION ,=> sub {
+        my (undef, $line) = @_;
+        $header .= $line;
+
+        # I hope only HTTP sends "empty line" as delimiters
+        if ($line =~ /^\s*$/sx) {
+            $response = HTTP::Response->parse($header);
+            my $msg = $response->message;
+            $msg =~ s/^\s+|\s+$//gsx;
+            $response->message($msg);
+
+            $response->previous($previous);
+            $previous = $response;
+
+            $header = '';
+        }
+
+        return length $line;
+    });
+
+    if (defined $arg) {
+        if ('' eq ref $arg) {
+            # will die() later
+            open my ($fh), q(+>:raw), $arg; ## no critic
+            $fh->autoflush(1);
+            $writedata = $fh;
+        } elsif (q(CODE) eq ref $arg) {
+            $easy->setopt(CURLOPT_WRITEFUNCTION ,=> sub {
+                my (undef, $chunk) = @_;
+                $arg->($chunk, $response, $self);
+                return length $chunk;
+            });
+        }
+    }
 
     my $encoding = 0;
     while (my ($key, $value) = each %curlopt) {
@@ -157,8 +187,10 @@ sub request {
 
     # SSL stuff, may not be compiled
     if ($request->uri->scheme =~ /s$/ix) {
-        $easy->setopt(_curlopt(q(CAINFO))           => $ua->{ssl_opts}{SSL_ca_file});
-        $easy->setopt(_curlopt(q(CAPATH))           => $ua->{ssl_opts}{SSL_ca_path});
+        $easy->setopt(_curlopt(q(CAINFO))           => $ua->{ssl_opts}{SSL_ca_file})
+            if defined $ua->{ssl_opts}{SSL_ca_file};
+        $easy->setopt(_curlopt(q(CAPATH))           => $ua->{ssl_opts}{SSL_ca_path})
+            if defined $ua->{ssl_opts}{SSL_ca_path};
         $easy->setopt(_curlopt(q(SSL_VERIFYHOST))   => $ua->{ssl_opts}{verify_hostname});
     }
 
@@ -173,7 +205,6 @@ sub request {
     $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
     $easy->setopt(CURLOPT_WRITEDATA         ,=> $writedata);
-    $easy->setopt(CURLOPT_WRITEHEADER       ,=> \$header);
 
     my $method = uc $request->method;
     if ($method eq q(GET)) {
@@ -207,9 +238,11 @@ sub request {
     $request->headers->scan(sub {
         my ($key, $value) = @_;
 
+        return unless defined $value;
+
         # stolen from LWP::Protocol::http
         $key =~ s/^://x;
-        $value =~ s/\n/ /gx if defined $value;
+        $value =~ s/\n/ /gx;
 
         if ($key =~ /^accept-encoding$/ix) {
             my @encoding =
@@ -227,34 +260,18 @@ sub request {
         }
     });
 
-    my $status = eval { $easy->perform; 0 };
+    eval { $easy->perform };
     my $error = looks_like_number($@) ? 0 + $@ : 0;
     $ua->{curl_multi}->remove_handle($easy);
     if ($error == CURLE_TOO_MANY_REDIRECTS) {
         # will return the last request
-    } elsif (not defined $status or $error) {
+    } elsif ($error) {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
             Net::Curl::Easy::strerror($error)
         );
     }
 
-    my $response;
-    if ($request->uri->scheme =~ /^https?$/ix) {
-        my $previous = undef;
-        my @header = split /(?:\015\012?|\012\015){2}/sx, $header;
-        for my $h (@header) {
-            $response = HTTP::Response->parse($h);
-            my $msg = defined $response->message ? $response->message : '';
-            $msg =~ s/^\s+|\s+$//gsx;
-            $response->message($msg);
-
-            $response->previous($previous);
-            $previous = $response;
-        }
-    } else {
-        $response = HTTP::Response->new(&HTTP::Status::RC_OK);
-    }
     $response->request($request);
 
     my $time = $easy->getinfo(CURLINFO_FILETIME);
