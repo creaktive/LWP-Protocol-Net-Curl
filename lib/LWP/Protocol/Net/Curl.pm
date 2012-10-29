@@ -81,6 +81,11 @@ our %curlopt;
     no warnings qw(redefine);   ## no critic
 
     *{'LWP::UserAgent::progress'} = sub {};
+    *{'Net::Curl::Easy::setopt_ifdef'} = sub {
+        my ($easy, $key, $value) = @_;
+        $easy->setopt(_curlopt($key) => $value)
+            if defined $value;
+    };
 }
 
 =for Pod::Coverage
@@ -90,6 +95,7 @@ request
 
 sub _curlopt {
     my ($key) = @_;
+    return 0 + $key if looks_like_number($key);
 
     $key =~ s/^Net::Curl::Easy:://ix;
     $key =~ y/-/_/;
@@ -103,7 +109,7 @@ sub _curlopt {
     };
     carp qq(Invalid libcurl constant: $key) if $@;
 
-    return $const;
+    return 0 + $const;
 }
 
 sub import {
@@ -112,11 +118,7 @@ sub import {
     if (@args) {
         my %args = @args;
         while (my ($key, $value) = each %args) {
-            if (looks_like_number($key)) {
-                $curlopt{$key} = $value;
-            } else {
-                $curlopt{_curlopt($key)} = $value;
-            }
+            $curlopt{_curlopt($key)} = $value;
         }
     }
 
@@ -155,6 +157,7 @@ sub request {
             $msg =~ s/^\s+|\s+$//gsx;
             $response->message($msg);
 
+            $response->request($request);
             $response->previous($previous);
             $previous = $response;
 
@@ -176,6 +179,7 @@ sub request {
                 $arg->($chunk, $response, $self);
                 return length $chunk;
             });
+            $writedata = undef;
         }
     }
 
@@ -187,24 +191,22 @@ sub request {
 
     # SSL stuff, may not be compiled
     if ($request->uri->scheme =~ /s$/ix) {
-        $easy->setopt(_curlopt(q(CAINFO))           => $ua->{ssl_opts}{SSL_ca_file})
-            if defined $ua->{ssl_opts}{SSL_ca_file};
-        $easy->setopt(_curlopt(q(CAPATH))           => $ua->{ssl_opts}{SSL_ca_path})
-            if defined $ua->{ssl_opts}{SSL_ca_path};
-        $easy->setopt(_curlopt(q(SSL_VERIFYHOST))   => $ua->{ssl_opts}{verify_hostname});
+        $easy->setopt_ifdef(CAINFO          => $ua->{ssl_opts}{SSL_ca_file});
+        $easy->setopt_ifdef(CAPATH          => $ua->{ssl_opts}{SSL_ca_path});
+        $easy->setopt_ifdef(SSL_VERIFYHOST  => $ua->{ssl_opts}{verify_hostname});
     }
 
-    $easy->setopt(CURLOPT_BUFFERSIZE        ,=> $size);
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
-    $easy->setopt(CURLOPT_INTERFACE         ,=> $ua->local_address);
-    $easy->setopt(CURLOPT_MAXFILESIZE       ,=> $ua->max_size);
     $easy->setopt(CURLOPT_NOPROGRESS        ,=> not $ua->show_progress);
     $easy->setopt(CURLOPT_NOPROXY           ,=> join(q(,) => @{$ua->{no_proxy}}));
-    $easy->setopt(CURLOPT_PROXY             ,=> $proxy);
     $easy->setopt(CURLOPT_SHARE             ,=> $ua->{curl_share});
-    $easy->setopt(CURLOPT_TIMEOUT           ,=> $timeout);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
-    $easy->setopt(CURLOPT_WRITEDATA         ,=> $writedata);
+    $easy->setopt_ifdef(CURLOPT_BUFFERSIZE  ,=> $size);
+    $easy->setopt_ifdef(CURLOPT_INTERFACE   ,=> $ua->local_address);
+    $easy->setopt_ifdef(CURLOPT_MAXFILESIZE ,=> $ua->max_size);
+    $easy->setopt_ifdef(CURLOPT_PROXY       ,=> $proxy);
+    $easy->setopt_ifdef(CURLOPT_TIMEOUT     ,=> $timeout);
+    $easy->setopt_ifdef(CURLOPT_WRITEDATA   ,=> $writedata);
 
     my $method = uc $request->method;
     if ($method eq q(GET)) {
@@ -296,8 +298,12 @@ sub request {
 =for :list
 * better implementation for non-HTTP protocols
 * more tests
-* test exotic LWP usage cases
 * non-blocking version
+
+=head1 BUGS
+
+=for :list
+* Complain about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.> if C<fork()> was used somewhere.
 
 =head1 SEE ALSO
 

@@ -93,11 +93,17 @@ more tests
 
 =item *
 
-test exotic LWP usage cases
+non-blocking version
+
+=back
+
+=head1 BUGS
+
+=over 4
 
 =item *
 
-non-blocking version
+Complain about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.> if C<fork()> was used somewhere.
 
 =back
 
