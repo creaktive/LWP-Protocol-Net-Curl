@@ -17,15 +17,25 @@ plan skip_all => q(Internet connection timed out)
     );
 
 my $ua = LWP::UserAgent->new;
+my $res;
 
-my $res = $ua->get(q(https://www.google.com));
-ok($res->is_success, q(https));
+SKIP: {
+    skip q(no HTTPS support), 3
+        unless grep { $_ eq q(https) } @LWP::Protocol::Net::Curl::implements;
 
-#use Data::Dumper;
-#diag Dumper $res;
+    $res = $ua->get(q(https://www.google.com));
+    ok($res->is_success, q(HTTPS is_success()));
+    ok($res->is_redirect ? 0 : 1, q(HTTPS not is_redirect()));
+    ok($res->redirects > 0, q(HTTPS redirects() == ) . $res->redirects);
+};
+
+# known to have a long redir chain
+$ua->max_redirect(1);
+$res = $ua->get(q(http://terra.com.br));
+ok($res->is_redirect, q(is_redirect()));
 
 $res = $ua->get(q(ftp://ftp.kernel.org/pub/README_ABOUT_BZ2_FILES));
-ok($res->is_success, q(ftp 1));
-like($res->content, qr(\Qftp://mirrors.kernel.org/sources.redhat.com/bzip2/\E), q(ftp 2));
+ok($res->is_success, q(FTP is_success()));
+like($res->content, qr(^This\s+file\s+describes\b), q(FTP content() start));
 
-done_testing(3);
+done_testing(6);
