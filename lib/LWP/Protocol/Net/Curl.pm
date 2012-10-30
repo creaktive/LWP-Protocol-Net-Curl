@@ -132,7 +132,6 @@ sub request {
     if (q(Net::Curl::Multi) ne ref $ua->{curl_multi}) {
         $ua->{curl_multi} = Net::Curl::Multi->new;
         $ua->{curl_share} = Net::Curl::Share->new;
-        $ua->{curl_share}->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_COOKIE);
         $ua->{curl_share}->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_DNS);
         eval { $ua->{curl_share}->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
     }
