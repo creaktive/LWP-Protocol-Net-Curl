@@ -23,6 +23,7 @@ Advantages:
 * connection persistence and DNS cache (independent from L<LWP::ConnCache>)
 * lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression> and redirection
 * lower CPU usage: this matters if you C<fork()> multiple downloader instances
+* asynchronous threading via L<Coro> (see F<eg/async.pl>)
 * at last but not least: B<100% compatible> with both L<LWP> and L<WWW::Mechanize> test suites!
 
 =head1 LIBCURL INTERFACE
@@ -324,12 +325,11 @@ sub request {
 =for :list
 * better implementation for non-HTTP protocols
 * more tests
-* non-blocking version
 
 =head1 BUGS
 
 =for :list
-* Complain about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.> if C<fork()> was used somewhere.
+* complains about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.>
 
 =head1 SEE ALSO
 

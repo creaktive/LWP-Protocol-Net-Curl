@@ -27,4 +27,5 @@ sub fetch {
         # big file
         $ua->get(qq(http://localhost/manual/en/mod/core.html?$_));
     }
+    return;
 }
