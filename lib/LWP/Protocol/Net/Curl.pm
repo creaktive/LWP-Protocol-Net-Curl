@@ -104,12 +104,13 @@ sub _curlopt {
     $key = qq(CURLOPT_${key}) if $key !~ /^CURLOPT_/x;
 
     my $const = eval {
-        no strict qw(refs); ## no critic
+        no strict qw(refs);     ## no critic
+        no warnings qw(once);   ## no critic
         return *$key->();
     };
     carp qq(Invalid libcurl constant: $key) if $@;
 
-    return 0 + $const;
+    return $const;
 }
 
 sub import {
@@ -118,7 +119,9 @@ sub import {
     if (@args) {
         my %args = @args;
         while (my ($key, $value) = each %args) {
-            $curlopt{_curlopt($key)} = $value;
+            my $const = _curlopt($key);
+            $curlopt{$const} = $value
+                if defined $const;
         }
     }
 
@@ -138,7 +141,7 @@ sub request {
 
     my $data = '';
     my $header = '';
-    my $writedata = \$data;
+    my $writedata;
 
     my $easy = Net::Curl::Easy->new;
     $ua->{curl_multi}->add_handle($easy);
@@ -166,20 +169,20 @@ sub request {
         return length $line;
     });
 
-    if (defined $arg) {
-        if ('' eq ref $arg) {
-            # will die() later
-            open my ($fh), q(+>:raw), $arg; ## no critic
-            $fh->autoflush(1);
-            $writedata = $fh;
-        } elsif (q(CODE) eq ref $arg) {
-            $easy->setopt(CURLOPT_WRITEFUNCTION ,=> sub {
-                my (undef, $chunk) = @_;
-                $arg->($chunk, $response, $self);
-                return length $chunk;
-            });
-            $writedata = undef;
-        }
+    if (q(CODE) eq ref $arg) {
+        $easy->setopt(CURLOPT_WRITEFUNCTION ,=> sub {
+            my (undef, $chunk) = @_;
+            $arg->($chunk, $response, $self);
+            return length $chunk;
+        });
+        $writedata = undef;
+    } elsif (defined $arg) {
+        # will die() later
+        open my $fh, q(+>:raw), $arg; ## no critic
+        $fh->autoflush(1);
+        $writedata = $fh;
+    } else {
+        $writedata = \$data;
     }
 
     my $encoding = 0;
