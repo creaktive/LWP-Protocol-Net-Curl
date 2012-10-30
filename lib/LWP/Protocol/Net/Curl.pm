@@ -148,6 +148,8 @@ sub request {
 
     my $previous = undef;
     my $response = HTTP::Response->new(&HTTP::Status::RC_OK);
+    $response->request($request);
+
     $easy->setopt(CURLOPT_HEADERFUNCTION ,=> sub {
         my (undef, $line) = @_;
         $header .= $line;
@@ -272,19 +274,26 @@ sub request {
         }
     });
 
-    eval { $easy->perform };
-    my $error = looks_like_number($@) ? 0 + $@ : 0;
-    $ua->{curl_multi}->remove_handle($easy);
-    if ($error == CURLE_TOO_MANY_REDIRECTS) {
-        # will return the last request
-    } elsif ($error) {
-        return HTTP::Response->new(
-            &HTTP::Status::RC_BAD_REQUEST,
-            Net::Curl::Easy::strerror($error)
-        );
-    }
+    my $running = 0;
+    do {
+        my ($r, $w, $e) = $ua->{curl_multi}->fdset;
+        my $_timeout = $ua->{curl_multi}->timeout;
+        select $r, $w, $e, $_timeout / 1000
+          if $_timeout > 0;
 
-    $response->request($request);
+        $running = $ua->{curl_multi}->perform;
+        while (my (undef, $_easy, $result) = $ua->{curl_multi}->info_read) {
+            $ua->{curl_multi}->remove_handle($_easy);
+            if ($result == CURLE_TOO_MANY_REDIRECTS) {
+                # will return the last request
+            } elsif ($result) {
+                return HTTP::Response->new(
+                    &HTTP::Status::RC_BAD_REQUEST,
+                    qq($result),
+                );
+            }
+        }
+    } while ($running);
 
     my $time = $easy->getinfo(CURLINFO_FILETIME);
     $response->headers->header(last_modified => time2str($time))

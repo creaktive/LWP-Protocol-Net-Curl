@@ -5,18 +5,17 @@ use warnings qw(all);
 
 BEGIN {
     use Test::More;
-    diag q(OK to see warnings here);
+    diag q(it's OK to see warnings here);
 };
 
 use LWP::Protocol::Net::Curl
     _DUMMY => 12345;
 
-use LWP::Simple;
+use LWP::UserAgent;
 
-is(
-    get(q(http://127.0.0.1:0/)),
-    undef,
-    q(bad address)
-);
+my $ua = LWP::UserAgent->new;
+my $res = $ua->get(q(http://127.0.0.1:0/));
+ok($res->is_error, q(bad address 1));
+like($res->message, qr/couldn't\s+connect\s+to\s+server/ix, q(bad address 2));
 
-done_testing(1);
+done_testing(2);
