@@ -213,26 +213,33 @@ sub request {
     $easy->setopt_ifdef(CURLOPT_WRITEDATA   ,=> $writedata);
 
     my $method = uc $request->method;
-    if ($method eq q(GET)) {
-        $easy->setopt(CURLOPT_HTTPGET       ,=> 1);
-    } elsif ($method eq q(POST)) {
-        $easy->setopt(CURLOPT_POST          ,=> 1);
-        $easy->setopt(CURLOPT_POSTFIELDS    ,=> $request->content);
-    } elsif ($method eq q(HEAD)) {
-        $easy->setopt(CURLOPT_NOBODY        ,=> 1);
-    } elsif ($method eq q(DELETE)) {
-        $easy->setopt(CURLOPT_CUSTOMREQUEST ,=> $method);
-    } elsif ($method eq q(PUT)) {
-        $easy->setopt(CURLOPT_UPLOAD        ,=> 1);
-        my $buf = $request->content;
-        my $off = 0;
-        $easy->setopt(CURLOPT_INFILESIZE    ,=> length $buf);
-        $easy->setopt(CURLOPT_READFUNCTION  ,=> sub {
-            my (undef, $maxlen) = @_;
-            my $chunk = substr $buf, $off, $maxlen;
-            $off += length $chunk;
-            return \$chunk;
-        });
+    my %dispatch = (
+        GET => sub {
+            $easy->setopt(CURLOPT_HTTPGET   ,=> 1);
+        }, POST => sub {
+            $easy->setopt(CURLOPT_POST      ,=> 1);
+            $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
+        }, HEAD => sub {
+            $easy->setopt(CURLOPT_NOBODY    ,=> 1);
+        }, DELETE => sub {
+            $easy->setopt(CURLOPT_CUSTOMREQUEST ,=> $method);
+        }, PUT => sub {
+            $easy->setopt(CURLOPT_UPLOAD    ,=> 1);
+            my $buf = $request->content;
+            my $off = 0;
+            $easy->setopt(CURLOPT_INFILESIZE,=> length $buf);
+            $easy->setopt(CURLOPT_READFUNCTION ,=> sub {
+                my (undef, $maxlen) = @_;
+                my $chunk = substr $buf, $off, $maxlen;
+                $off += length $chunk;
+                return \$chunk;
+            });
+        },
+    );
+
+    my $method_ref = $dispatch{$method};
+    if (defined $method_ref) {
+        $method_ref->();
     } else {
         return HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
