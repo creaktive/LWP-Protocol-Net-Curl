@@ -25,8 +25,9 @@ isa_ok($res, q(HTTP::Response));
 ok($res->is_success, q(is_success));
 like($res->decoded_content, qr/\b${now}\b/sx, q(content pingback));
 
-$res = $ua->put($server->uri . q(echo/body));
+$res = $ua->put($server->uri . q(echo/body), Content => q(zxcvb) x 10);
 is($res->code, 200, q(PUT));
+like($res->decoded_content, qr/^(?:zxcvb){10}$/sx, q(PUT decoded_content()));
 
 $res = $ua->delete($server->uri . q(echo/body));
 is($res->code, 200, q(DELETE));
@@ -38,4 +39,4 @@ LWP::Protocol::implementor(file => q(LWP::Protocol::Net::Curl));
 $res = $ua->get(qq(file://$Bin/$Script), q(Accept-Encoding) => q(dummy));
 is(length $res->content, -s __FILE__, q(quine));
 
-done_testing(7);
+done_testing(8);

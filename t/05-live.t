@@ -23,7 +23,7 @@ SKIP: {
     skip q(no HTTPS support), 3
         unless grep { $_ eq q(https) } @LWP::Protocol::Net::Curl::implements;
 
-    $res = $ua->get(q(https://www.google.com));
+    $res = $ua->get(q(https://google.com));
     ok($res->is_success, q(HTTPS is_success()));
     ok($res->is_redirect ? 0 : 1, q(HTTPS not is_redirect()));
     ok($res->redirects > 0, q(HTTPS redirects() == ) . $res->redirects);
