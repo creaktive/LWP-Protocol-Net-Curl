@@ -23,7 +23,7 @@ Advantages:
 * connection persistence and DNS cache (independent from L<LWP::ConnCache>)
 * lightning-fast L<HTTP compression|https://en.wikipedia.org/wiki/Http_compression> and redirection
 * lower CPU usage: this matters if you C<fork()> multiple downloader instances
-* asynchronous threading via L<Coro> (see F<eg/async.pl>)
+* asynchronous threading via L<Coro::Select> (see F<eg/async.pl>)
 * at last but not least: B<100% compatible> with both L<LWP> and L<WWW::Mechanize> test suites!
 
 =head1 LIBCURL INTERFACE
@@ -275,8 +275,12 @@ sub request {
                 ++$encoding;
                 $easy->setopt(CURLOPT_ENCODING  ,=> join(q(,) => @encoding));
             }
-        } elsif ($key =~ /^user-agent$/ix and $value eq $ua->_agent) {
-            $easy->setopt(CURLOPT_USERAGENT     ,=> $ua->_agent . ' ' . Net::Curl::version);
+        } elsif ($key =~ /^user-agent$/ix) {
+            # While we try our best to look like LWP on the client-side,
+            # it's *definitely* different on the server-site!
+            # I guess it would be nice to introduce ourselves in a polite way.
+            $value =~ s/\b(\Q@{[ $ua->_agent ]}\E)\b/qq($1 ) . Net::Curl::version()/egx;
+            $easy->setopt(CURLOPT_USERAGENT     ,=> $value);
         } else {
             $easy->pushopt(CURLOPT_HTTPHEADER   ,=> [qq[$key: $value]]);
         }
@@ -314,7 +318,6 @@ sub request {
         $writedata->sync;
     } elsif ($encoding) {
         $response->headers->header(content_encoding => q(identity));
-        $response->headers->header(content_length   => length $data);
     }
 
     return $self->collect_once($arg, $response, $data);
@@ -325,6 +328,8 @@ sub request {
 =for :list
 * better implementation for non-HTTP protocols
 * more tests
+* expose the inner guts of libcurl while handling encoding/redirects internally
+* revise L<Net::Curl::Multi> "event loop" code
 
 =head1 BUGS
 

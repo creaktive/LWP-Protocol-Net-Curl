@@ -1,28 +1,26 @@
 #!/usr/bin/env perl
 use common::sense;
+use open qw(:locale);
 
-#=for comment
+use Coro;
+#use Coro::LWP;
 {
     package LWP::Protocol::Net::Curl;
     use Coro::Select qw(select);
-    use LWP::Protocol::Net::Curl
-        encoding    => '',
-        verbose     => 1;
+    use LWP::Protocol::Net::Curl verbose => 1;
 }
-#=cut
+use WWW::Mechanize;
 
-use Coro;
-use LWP::UserAgent;
-
-my $ua = LWP::UserAgent->new(
-    timeout     => 10,
-);
+my $mech = WWW::Mechanize->new;
+$mech->agent_alias(q(Linux Mozilla));
 
 my @pids = map {
     async {
-        $ua->get(shift);
+        my $url = shift;
+        $mech->get($url);
+        printf qq(%-20s\t%s\n), $url, $mech->title;
     } $_
-} qw{
+} qw {
     http://google.com
     http://facebook.com
     http://youtube.com
@@ -33,6 +31,16 @@ my @pids = map {
     http://twitter.com
     http://qq.com
     http://amazon.com
+    http://blogspot.com
+    http://linkedin.com
+    http://google.co.in
+    http://taobao.com
+    http://yahoo.co.jp
+    http://sina.com.cn
+    http://msn.com
+    http://wordpress.com
+    http://google.de
+    http://google.com.hk
 };
 
 $_->join for @pids;
