@@ -286,8 +286,8 @@ sub request {
     do {
         my ($r, $w, $e) = $ua->{curl_multi}->fdset;
         my $_timeout = $ua->{curl_multi}->timeout;
-        select $r, $w, $e, $_timeout / 1000
-          if $_timeout > 0;
+        select($r, $w, $e, $_timeout / 1000)
+            if $_timeout > 9;
 
         $running = $ua->{curl_multi}->perform;
         while (my (undef, $_easy, $result) = $ua->{curl_multi}->info_read) {
