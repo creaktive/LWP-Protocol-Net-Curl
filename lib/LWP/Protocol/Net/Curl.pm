@@ -311,8 +311,6 @@ sub request {
     $response->headers->header(last_modified => time2str($time))
         if $time > 0;
 
-    undef $easy;
-
     # handle decoded_content() & direct file write
     if (q(GLOB) eq ref $writedata) {
         $writedata->sync;
@@ -335,6 +333,7 @@ sub request {
 
 =for :list
 * complains about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.>
+* in "async mode", each L<LWP::UserAgent> instance "blocks" until all requests finish
 
 =head1 SEE ALSO
 

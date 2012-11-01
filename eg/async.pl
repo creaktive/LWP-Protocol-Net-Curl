@@ -7,17 +7,18 @@ use Coro;
 {
     package LWP::Protocol::Net::Curl;
     use Coro::Select qw(select);
-    use LWP::Protocol::Net::Curl verbose => 1;
+    use LWP::Protocol::Net::Curl verbose => 0;
 }
 use WWW::Mechanize;
-
-my $mech = WWW::Mechanize->new;
-$mech->agent_alias(q(Linux Mozilla));
 
 my @pids = map {
     async {
         my $url = shift;
+
+        my $mech = WWW::Mechanize->new;
+        $mech->agent_alias(q(Linux Mozilla));
         $mech->get($url);
+
         printf qq(%-20s\t%s\n), $url, $mech->title;
     } $_
 } qw {
