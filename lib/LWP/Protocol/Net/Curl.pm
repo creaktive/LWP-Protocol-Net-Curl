@@ -181,6 +181,7 @@ sub request {
     } elsif (defined $arg) {
         # will die() later
         sysopen $writedata, $arg, O_CREAT | O_NONBLOCK | O_WRONLY;
+        binmode $writedata;
     } else {
         $writedata = \$data;
     }
