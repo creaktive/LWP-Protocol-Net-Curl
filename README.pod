@@ -8,7 +8,7 @@ LWP::Protocol::Net::Curl - the power of libcurl in the palm of your hands!
 
 =head1 VERSION
 
-version 0.005
+version 0.006
 
 =head1 SYNOPSIS
 
@@ -111,11 +111,15 @@ revise L<Net::Curl::Multi> "event loop" code
 
 =item *
 
-complains about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.>
+sometimes still complains about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.>
 
 =item *
 
 in "async mode", each L<LWP::UserAgent> instance "blocks" until all requests finish
+
+=item *
+
+parallel requests via L<Coro::Select> are B<very inefficient>; consider using L<YADA> if you're into event-driven parallel user agents
 
 =back
 
@@ -125,11 +129,15 @@ in "async mode", each L<LWP::UserAgent> instance "blocks" until all requests fin
 
 =item *
 
-L<LWP::Protocol::GHTTP> - used as a reference
+L<LWP::Protocol::GHTTP> - used as a reference for L<LWP::Protocol> implementation
 
 =item *
 
-L<LWP::Protocol::AnyEvent::http> - another reference
+L<LWP::Protocol::AnyEvent::http> - another L<LWP::Protocol> reference
+
+=item *
+
+L<YADA> - L<Net::Curl> usage reference
 
 =item *
 
@@ -137,7 +145,7 @@ L<Net::Curl> - backend for this module
 
 =item *
 
-L<LWP::Curl> - provides L<LWP::UserAgent>-compatible API for libcurl
+L<LWP::Curl> - provides L<LWP::UserAgent>-compatible API via L<WWW::Curl>
 
 =back
 

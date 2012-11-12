@@ -57,8 +57,8 @@ use warnings qw(all);
 use base qw(LWP::Protocol);
 
 use Carp qw(carp);
+use Fcntl;
 use HTTP::Date;
-use IO::Handle;
 use LWP::UserAgent;
 use Net::Curl::Easy qw(:constants);
 use Net::Curl::Multi qw(:constants);
@@ -74,7 +74,7 @@ eval { $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
 
 our @implements =
     sort grep { defined }
-        @{ { map { ($_)x2 } @{Net::Curl::version_info->{protocols}} } }
+        @{ { map { ($_) x 2 } @{Net::Curl::version_info()->{protocols}} } }
         {qw{ftp ftps http https sftp scp}};
 
 LWP::Protocol::implementor($_ => __PACKAGE__)
@@ -180,9 +180,7 @@ sub request {
         $writedata = undef;
     } elsif (defined $arg) {
         # will die() later
-        open my $fh, q(+>:raw), $arg; ## no critic
-        $fh->autoflush(1);
-        $writedata = $fh;
+        sysopen $writedata, $arg, O_CREAT | O_NONBLOCK | O_WRONLY;
     } else {
         $writedata = \$data;
     }
@@ -312,7 +310,9 @@ sub request {
 
     # handle decoded_content() & direct file write
     if (q(GLOB) eq ref $writedata) {
-        $writedata->sync;
+        close $writedata;
+        # avoid truncate by collect()
+        $arg = undef;
     } elsif ($encoding) {
         $response->headers->header(content_encoding => q(identity));
     }
@@ -331,16 +331,18 @@ sub request {
 =head1 BUGS
 
 =for :list
-* complains about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.>
+* sometimes still complains about I<Attempt to free unreferenced scalar: SV 0xdeadbeef during global destruction.>
 * in "async mode", each L<LWP::UserAgent> instance "blocks" until all requests finish
+* parallel requests via L<Coro::Select> are B<very inefficient>; consider using L<YADA> if you're into event-driven parallel user agents
 
 =head1 SEE ALSO
 
 =for :list
-* L<LWP::Protocol::GHTTP> - used as a reference
-* L<LWP::Protocol::AnyEvent::http> - another reference
+* L<LWP::Protocol::GHTTP> - used as a reference for L<LWP::Protocol> implementation
+* L<LWP::Protocol::AnyEvent::http> - another L<LWP::Protocol> reference
+* L<YADA> - L<Net::Curl> usage reference
 * L<Net::Curl> - backend for this module
-* L<LWP::Curl> - provides L<LWP::UserAgent>-compatible API for libcurl
+* L<LWP::Curl> - provides L<LWP::UserAgent>-compatible API via L<WWW::Curl>
 
 =cut
 
