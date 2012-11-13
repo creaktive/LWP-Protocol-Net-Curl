@@ -136,8 +136,14 @@ sub request {
     my ($self, $request, $proxy, $arg, $size, $timeout) = @_;
 
     my $ua = $self->{ua};
-    $ua->{curl_multi} = Net::Curl::Multi->new({ def_headers => $ua->{def_headers} })
-        unless q(Net::Curl::Multi) eq ref $ua->{curl_multi};
+    unless (q(Net::Curl::Multi) eq ref $ua->{curl_multi}) {
+        $ua->{curl_multi} = Net::Curl::Multi->new({ def_headers => $ua->{def_headers} });
+
+        # avoid "callback function is not set" warning
+        $ua->{curl_multi}->setopt(CURLMOPT_SOCKETFUNCTION ,=> sub {
+            return 0;
+        });
+    }
 
     my $data = '';
     my $header = '';
