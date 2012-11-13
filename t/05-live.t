@@ -4,19 +4,26 @@ use utf8;
 use warnings qw(all);
 
 use IO::Socket::INET;
-use LWP::Protocol::Net::Curl;
+
+# beware of the evil FTP
+use LWP::Protocol::Net::Curl
+    ftpport     => undef,
+    ftp_use_epsv=> 0;
+
 use LWP::UserAgent;
 use Test::More;
 
 plan skip_all => q(Internet connection timed out)
     unless IO::Socket::INET->new(
         PeerHost  => q(google.com),
-        PeerPort  => 80,
+        PeerPort  => 443,
         Proto     => q(tcp),
         Timeout   => 10,
     );
 
 my $ua = LWP::UserAgent->new;
+$ua->ssl_opts(verify_hostname => 0);
+
 my $res;
 
 SKIP: {
