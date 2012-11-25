@@ -14,12 +14,15 @@ my $server = Test::HTTP::Server->new;
 my $now = time;
 
 my $ua = LWP::UserAgent->new(keep_alive => 4);
+
+is(exists($ua->{curl_multi}), '', q(LWP::UserAgent object clean));
 my $res = $ua->post(
     $server->uri . q(echo/body),
     q(Accept-Encoding) => q(gzip, bzip2),
     Skipped => undef,
     Content => { a => 1, b => 2, c => 3, time => $now },
 );
+isa_ok($ua->{curl_multi}, q(Net::Curl::Multi));
 
 isa_ok($res, q(HTTP::Response));
 ok($res->is_success, q(is_success));
@@ -39,4 +42,4 @@ LWP::Protocol::implementor(file => q(LWP::Protocol::Net::Curl));
 $res = $ua->get(qq(file://$Bin/$Script), q(Accept-Encoding) => q(dummy));
 is(length $res->content, -s __FILE__, q(quine));
 
-done_testing(8);
+done_testing(10);
