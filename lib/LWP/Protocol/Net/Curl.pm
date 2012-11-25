@@ -80,18 +80,6 @@ our @implements =
 LWP::Protocol::implementor($_ => __PACKAGE__)
     for @implements;
 
-{
-    no strict qw(refs);         ## no critic
-    no warnings qw(redefine);   ## no critic
-
-    *{'LWP::UserAgent::progress'} = sub {};
-    *{'Net::Curl::Easy::setopt_ifdef'} = sub {
-        my ($easy, $key, $value) = @_;
-        $easy->setopt(_curlopt($key) => $value)
-            if defined $value;
-    };
-}
-
 =for Pod::Coverage
 import
 request
@@ -115,6 +103,15 @@ sub _curlopt {
     carp qq(Invalid libcurl constant: $key) if $@;
 
     return $const;
+}
+
+sub _setopt_ifdef {
+    my ($easy, $key, $value) = @_;
+
+    $easy->setopt(_curlopt($key) => $value)
+        if defined $value;
+
+    return;
 }
 
 sub import {
@@ -201,9 +198,9 @@ sub request {
 
     # SSL stuff, may not be compiled
     if ($request->uri->scheme =~ /s$/ix) {
-        $easy->setopt_ifdef(CAINFO          => $ua->{ssl_opts}{SSL_ca_file});
-        $easy->setopt_ifdef(CAPATH          => $ua->{ssl_opts}{SSL_ca_path});
-        $easy->setopt_ifdef(SSL_VERIFYHOST  => $ua->{ssl_opts}{verify_hostname});
+        _setopt_ifdef($easy, CAINFO         => $ua->{ssl_opts}{SSL_ca_file});
+        _setopt_ifdef($easy, CAPATH         => $ua->{ssl_opts}{SSL_ca_path});
+        _setopt_ifdef($easy, SSL_VERIFYHOST => $ua->{ssl_opts}{verify_hostname});
     }
 
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
@@ -211,12 +208,12 @@ sub request {
     $easy->setopt(CURLOPT_NOPROXY           ,=> join(q(,) => @{$ua->{no_proxy}}));
     $easy->setopt(CURLOPT_SHARE             ,=> $share);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
-    $easy->setopt_ifdef(CURLOPT_BUFFERSIZE  ,=> $size);
-    $easy->setopt_ifdef(CURLOPT_INTERFACE   ,=> $ua->local_address);
-    $easy->setopt_ifdef(CURLOPT_MAXFILESIZE ,=> $ua->max_size);
-    $easy->setopt_ifdef(CURLOPT_PROXY       ,=> $proxy);
-    $easy->setopt_ifdef(CURLOPT_TIMEOUT     ,=> $timeout);
-    $easy->setopt_ifdef(CURLOPT_WRITEDATA   ,=> $writedata);
+    _setopt_ifdef($easy, CURLOPT_BUFFERSIZE ,=> $size);
+    _setopt_ifdef($easy, CURLOPT_INTERFACE  ,=> $ua->local_address);
+    _setopt_ifdef($easy, CURLOPT_MAXFILESIZE,=> $ua->max_size);
+    _setopt_ifdef($easy, CURLOPT_PROXY      ,=> $proxy);
+    _setopt_ifdef($easy, CURLOPT_TIMEOUT    ,=> $timeout);
+    _setopt_ifdef($easy, CURLOPT_WRITEDATA  ,=> $writedata);
 
     my $method = uc $request->method;
     my %dispatch = (
