@@ -204,7 +204,6 @@ sub request {
     }
 
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
-    $easy->setopt(CURLOPT_NOPROGRESS        ,=> not $ua->show_progress);
     $easy->setopt(CURLOPT_NOPROXY           ,=> join(q(,) => @{$ua->{no_proxy}}));
     $easy->setopt(CURLOPT_SHARE             ,=> $share);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
@@ -214,6 +213,15 @@ sub request {
     _setopt_ifdef($easy, CURLOPT_PROXY      ,=> $proxy);
     _setopt_ifdef($easy, CURLOPT_TIMEOUT    ,=> $timeout);
     _setopt_ifdef($easy, CURLOPT_WRITEDATA  ,=> $writedata);
+
+    if ($ua->show_progress) {
+        $easy->setopt(CURLOPT_NOPROGRESS        ,=> 0);
+        $easy->setopt(CURLOPT_PROGRESSFUNCTION  ,=> sub {
+            my (undef, $dltotal, $dlnow) = @_;
+            $ua->progress($dltotal ? $dlnow / $dltotal : q(tick));
+            return 0;
+        });
+    }
 
     my $method = uc $request->method;
     my %dispatch = (
