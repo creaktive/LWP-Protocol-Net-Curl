@@ -75,7 +75,7 @@ eval { $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
 our @implements =
     sort grep { defined }
         @{ { map { ($_) x 2 } @{Net::Curl::version_info()->{protocols}} } }
-        {qw{ftp ftps http https sftp scp}};
+        {qw{ftp ftps gopher http https sftp scp}};
 
 LWP::Protocol::implementor($_ => __PACKAGE__)
     for @implements;
@@ -164,11 +164,12 @@ sub request {
         if ($line =~ /^\s*$/sx) {
             $response = HTTP::Response->parse($header);
             my $msg = $response->message;
+            $msg = '' unless defined $msg;
             $msg =~ s/^\s+|\s+$//gsx;
             $response->message($msg);
 
             $response->request($request);
-            $response->previous($previous);
+            $response->previous($previous) if defined $previous;
             $previous = $response;
 
             $header = '';
@@ -310,6 +311,8 @@ sub request {
             }
         }
     } while ($running);
+
+    $response->code($easy->getinfo(CURLINFO_RESPONSE_CODE) || 200);
 
     my $time = $easy->getinfo(CURLINFO_FILETIME);
     $response->headers->header(last_modified => time2str($time))
