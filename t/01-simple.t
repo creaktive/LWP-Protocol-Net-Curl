@@ -6,6 +6,7 @@ use warnings qw(all);
 use Net::Curl::Easy qw(:constants);
 
 use LWP::Protocol::Net::Curl
+    takeover        => 0,
     CURLOPT_ENCODING=> '',
     CURLOPT_REFERER ,=> q(http://localhost/),
     httpheader      => [qq(X-User-Agent: @{[ Net::Curl::version ]})];
@@ -21,6 +22,14 @@ ok(
 
 my $server = Test::HTTP::Server->new;
 
+unlike(
+    get($server->uri . q(echo/head)),
+    qr/\Q@{[ Net::Curl::version ]}\E/sx,
+    q(original LWP)
+);
+
+LWP::Protocol::implementor(http => q(LWP::Protocol::Net::Curl));
+
 like(
     get($server->uri . q(echo/head)),
     qr/\Q@{[ Net::Curl::version ]}\E/sx,
@@ -33,4 +42,4 @@ like(
     q(HEAD)
 );
 
-done_testing(3);
+done_testing(4);

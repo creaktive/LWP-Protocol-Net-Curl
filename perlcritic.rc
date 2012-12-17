@@ -1,4 +1,4 @@
-severity = stern
+severity = harsh
 
 [TestingAndDebugging::RequireUseWarnings]
 equivalent_modules = common::sense

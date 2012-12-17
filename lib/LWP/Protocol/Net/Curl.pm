@@ -30,6 +30,18 @@ Advantages:
 
 You may query which L<LWP> protocols are implemented through L<Net::Curl> by accessing C<@LWP::Protocol::Net::Curl::implements>.
 
+By default, B<every protocol> listed in that array will be implemented via L<LWP::Protocol::Net::Curl>.
+It is possible to import only specific protocols:
+
+    use LWP::Protocol::Net::Curl takeover => 0;
+    LWP::Protocol::implementor(https => 'LWP::Protocol::Net::Curl');
+
+The default value of C<takeover> option is I<true>, resulting in exactly the same behavior:
+
+    use LWP::Protocol::Net::Curl takeover => 0;
+    LWP::Protocol::implementor($_ => 'LWP::Protocol::Net::Curl')
+        for @LWP::Protocol::Net::Curl::implements;
+
 Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_setopt.html> can be set during initialization:
 
     use LWP::Protocol::Net::Curl
@@ -68,27 +80,28 @@ use Scalar::Util qw(looks_like_number);
 
 # VERSION
 
-our %curlopt;
-our $share;
+my %curlopt;
+my $share;
 unless (defined $Config{usethreads}) {
     $share = Net::Curl::Share->new({ started => time });
     $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_DNS);
+
+    ## no critic (RequireCheckingReturnValueOfEval)
     eval { $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
 }
 
+## no critic (ProhibitPackageVars,ProhibitVoidMap)
 our @implements =
     sort grep { defined }
         @{ { map { ($_) x 2 } @{Net::Curl::version_info()->{protocols}} } }
         {qw{ftp ftps gopher http https sftp scp}};
-
-LWP::Protocol::implementor($_ => __PACKAGE__)
-    for @implements;
 
 =for Pod::Coverage
 import
 request
 =cut
 
+# Resolve libcurl constants by string
 sub _curlopt {
     my ($key) = @_;
     return 0 + $key if looks_like_number($key);
@@ -99,9 +112,10 @@ sub _curlopt {
     $key = uc $key;
     $key = qq(CURLOPT_${key}) if $key !~ /^CURLOPT_/x;
 
+    ## no critic (ProhibitNoStrict,ProhibitNoWarnings)
     my $const = eval {
-        no strict qw(refs);     ## no critic
-        no warnings qw(once);   ## no critic
+        no strict qw(refs);
+        no warnings qw(once);
         return *$key->();
     };
     carp qq(Invalid libcurl constant: $key) if $@;
@@ -109,6 +123,7 @@ sub _curlopt {
     return $const;
 }
 
+# Sugar for a common setopt() pattern
 sub _setopt_ifdef {
     my ($easy, $key, $value) = @_;
 
@@ -118,21 +133,147 @@ sub _setopt_ifdef {
     return;
 }
 
+# Pre-configure the module
 sub import {
     my (undef, @args) = @_;
 
+    my $takeover = 1;
     if (@args) {
         my %args = @args;
         while (my ($key, $value) = each %args) {
-            my $const = _curlopt($key);
-            $curlopt{$const} = $value
-                if defined $const;
+            if ($key eq q(takeover)) {
+                $takeover = $value;
+            } else {
+                my $const = _curlopt($key);
+                $curlopt{$const} = $value
+                    if defined $const;
+            }
         }
+    }
+
+    if ($takeover) {
+        LWP::Protocol::implementor($_ => __PACKAGE__)
+            for @implements;
     }
 
     return;
 }
 
+# Properly setup libcurl to handle each method in a compatible way
+sub _handle_method {
+    my ($ua, $easy, $request) = @_;
+
+    my $method = uc $request->method;
+    my %dispatch = (
+        GET => sub {
+            $easy->setopt(CURLOPT_HTTPGET   ,=> 1);
+        }, POST => sub {
+            $easy->setopt(CURLOPT_POST      ,=> 1);
+            $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
+        }, HEAD => sub {
+            $easy->setopt(CURLOPT_NOBODY    ,=> 1);
+        }, DELETE => sub {
+            $easy->setopt(CURLOPT_CUSTOMREQUEST ,=> $method);
+        }, PUT => sub {
+            $easy->setopt(CURLOPT_UPLOAD    ,=> 1);
+            my $buf = $request->content;
+            my $off = 0;
+            $easy->setopt(CURLOPT_INFILESIZE,=> length $buf);
+            $easy->setopt(CURLOPT_READFUNCTION ,=> sub {
+                my (undef, $maxlen) = @_;
+                my $chunk = substr $buf, $off, $maxlen;
+                $off += length $chunk;
+                return \$chunk;
+            });
+        },
+    );
+
+    my $method_ref = $dispatch{$method};
+    if (defined $method_ref) {
+        $method_ref->();
+    } else {
+        ## no critic (RequireCarping)
+        die HTTP::Response->new(
+            &HTTP::Status::RC_BAD_REQUEST,
+            qq(Bad method '$method')
+        );
+    }
+
+    # handle redirects internally (except POST, greatly fsck'd up by IIS servers)
+    if ($method ne q(POST) and grep { $method eq uc } @{$ua->requests_redirectable}) {
+        $easy->setopt(CURLOPT_AUTOREFERER   ,=> 1);
+        $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 1);
+        $easy->setopt(CURLOPT_MAXREDIRS     ,=> $ua->max_redirect);
+    } else {
+        $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 0);
+    }
+
+    return $method;
+}
+
+# Compatibilize request headers
+sub _fix_headers {
+    my ($ua, $easy, $key, $value) = @_;
+
+    return 0 unless defined $value;
+
+    # stolen from LWP::Protocol::http
+    $key =~ s/^://x;
+    $value =~ s/\n/ /gx;
+
+    my $encoding = 0;
+    if ($key =~ /^accept-encoding$/ix) {
+        my @encoding =
+            map { /^(?:x-)?(deflate|gzip|identity)$/ix ? lc $1 : () }
+            split /\s*,\s*/x, $value;
+
+        if (@encoding) {
+            ++$encoding;
+            $easy->setopt(CURLOPT_ENCODING  ,=> join(q(,) => @encoding));
+        }
+    } elsif ($key =~ /^user-agent$/ix) {
+        # While we try our best to look like LWP on the client-side,
+        # it's *definitely* different on the server-site!
+        # I guess it would be nice to introduce ourselves in a polite way.
+        $value =~ s/\b(\Q@{[ $ua->_agent ]}\E)\b/qq($1 ) . Net::Curl::version()/egx;
+        $easy->setopt(CURLOPT_USERAGENT     ,=> $value);
+    } else {
+        $easy->pushopt(CURLOPT_HTTPHEADER   ,=> [qq[$key: $value]]);
+    }
+
+    return $encoding;
+}
+
+# Wrap libcurl perform() in a non-blocking way
+sub _perform_loop {
+    my ($multi) = @_;
+
+    my $running = 0;
+    do {
+        my ($r, $w, $e) = $multi->fdset;
+        my $timeout = $multi->timeout;
+        select($r, $w, $e, $timeout / 1000)
+            if $timeout > 9;
+
+        $running = $multi->perform;
+        while (my (undef, $easy, $result) = $multi->info_read) {
+            $multi->remove_handle($easy);
+            if ($result == CURLE_TOO_MANY_REDIRECTS) {
+                # will return the last request
+            } elsif ($result) {
+                ## no critic (RequireCarping)
+                die HTTP::Response->new(
+                    &HTTP::Status::RC_BAD_REQUEST,
+                    qq($result),
+                );
+            }
+        }
+    } while ($running);
+
+    return $running;
+}
+
+## no critic (ProhibitManyArgs)
 sub request {
     my ($self, $request, $proxy, $arg, $size, $timeout) = @_;
 
@@ -229,99 +370,11 @@ sub request {
         });
     }
 
-    my $method = uc $request->method;
-    my %dispatch = (
-        GET => sub {
-            $easy->setopt(CURLOPT_HTTPGET   ,=> 1);
-        }, POST => sub {
-            $easy->setopt(CURLOPT_POST      ,=> 1);
-            $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
-        }, HEAD => sub {
-            $easy->setopt(CURLOPT_NOBODY    ,=> 1);
-        }, DELETE => sub {
-            $easy->setopt(CURLOPT_CUSTOMREQUEST ,=> $method);
-        }, PUT => sub {
-            $easy->setopt(CURLOPT_UPLOAD    ,=> 1);
-            my $buf = $request->content;
-            my $off = 0;
-            $easy->setopt(CURLOPT_INFILESIZE,=> length $buf);
-            $easy->setopt(CURLOPT_READFUNCTION ,=> sub {
-                my (undef, $maxlen) = @_;
-                my $chunk = substr $buf, $off, $maxlen;
-                $off += length $chunk;
-                return \$chunk;
-            });
-        },
-    );
+    _handle_method($ua, $easy, $request);
 
-    my $method_ref = $dispatch{$method};
-    if (defined $method_ref) {
-        $method_ref->();
-    } else {
-        return HTTP::Response->new(
-            &HTTP::Status::RC_BAD_REQUEST,
-            qq(Bad method '$method')
-        );
-    }
+    $request->headers->scan(sub { $encoding += _fix_headers($ua, $easy, @_) });
 
-    # handle redirects internally (except POST, greatly fsck'd up by IIS servers)
-    if ($method ne q(POST) and grep { $method eq uc } @{$ua->requests_redirectable}) {
-        $easy->setopt(CURLOPT_AUTOREFERER   ,=> 1);
-        $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 1);
-        $easy->setopt(CURLOPT_MAXREDIRS     ,=> $ua->max_redirect);
-    } else {
-        $easy->setopt(CURLOPT_FOLLOWLOCATION,=> 0);
-    }
-
-    $request->headers->scan(sub {
-        my ($key, $value) = @_;
-
-        return unless defined $value;
-
-        # stolen from LWP::Protocol::http
-        $key =~ s/^://x;
-        $value =~ s/\n/ /gx;
-
-        if ($key =~ /^accept-encoding$/ix) {
-            my @encoding =
-                map { /^(?:x-)?(deflate|gzip|identity)$/ix ? lc $1 : () }
-                split /\s*,\s*/x, $value;
-
-            if (@encoding) {
-                ++$encoding;
-                $easy->setopt(CURLOPT_ENCODING  ,=> join(q(,) => @encoding));
-            }
-        } elsif ($key =~ /^user-agent$/ix) {
-            # While we try our best to look like LWP on the client-side,
-            # it's *definitely* different on the server-site!
-            # I guess it would be nice to introduce ourselves in a polite way.
-            $value =~ s/\b(\Q@{[ $ua->_agent ]}\E)\b/qq($1 ) . Net::Curl::version()/egx;
-            $easy->setopt(CURLOPT_USERAGENT     ,=> $value);
-        } else {
-            $easy->pushopt(CURLOPT_HTTPHEADER   ,=> [qq[$key: $value]]);
-        }
-    });
-
-    my $running = 0;
-    do {
-        my ($r, $w, $e) = $ua->{curl_multi}->fdset;
-        my $_timeout = $ua->{curl_multi}->timeout;
-        select($r, $w, $e, $_timeout / 1000)
-            if $_timeout > 9;
-
-        $running = $ua->{curl_multi}->perform;
-        while (my (undef, $_easy, $result) = $ua->{curl_multi}->info_read) {
-            $ua->{curl_multi}->remove_handle($_easy);
-            if ($result == CURLE_TOO_MANY_REDIRECTS) {
-                # will return the last request
-            } elsif ($result) {
-                return HTTP::Response->new(
-                    &HTTP::Status::RC_BAD_REQUEST,
-                    qq($result),
-                );
-            }
-        }
-    } while ($running);
+    _perform_loop($ua->{curl_multi});
 
     $response->code($easy->getinfo(CURLINFO_RESPONSE_CODE) || 200);
 
