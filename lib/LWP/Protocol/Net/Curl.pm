@@ -28,7 +28,7 @@ Advantages:
 
 =head1 LIBCURL INTERFACE
 
-You may query which L<LWP> protocols are implemented through L<Net::Curl> by accessing C<@LWP::Protocol::Net::Curl::implements>.
+You may query which L<LWP> protocols are implemented through L<Net::Curl> by accessing C<@LWP::Protocol::Net::Curl::implements> or C<%LWP::Protocol::Net::Curl::implements>.
 
 By default, B<every protocol> listed in that array will be implemented via L<LWP::Protocol::Net::Curl>.
 It is possible to import only specific protocols:
@@ -36,7 +36,7 @@ It is possible to import only specific protocols:
     use LWP::Protocol::Net::Curl takeover => 0;
     LWP::Protocol::implementor(https => 'LWP::Protocol::Net::Curl');
 
-The default value of C<takeover> option is I<true>, resulting in exactly the same behavior:
+The default value of C<takeover> option is I<true>, resulting in exactly the same behavior as in:
 
     use LWP::Protocol::Net::Curl takeover => 0;
     LWP::Protocol::implementor($_ => 'LWP::Protocol::Net::Curl')
@@ -90,11 +90,13 @@ unless (defined $Config{usethreads}) {
     eval { $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_SSL_SESSION) };
 }
 
-## no critic (ProhibitPackageVars,ProhibitVoidMap)
+## no critic (ProhibitPackageVars)
+my %protocols = map { ($_) x 2 } @{Net::Curl::version_info()->{protocols}};
 our @implements =
     sort grep { defined }
-        @{ { map { ($_) x 2 } @{Net::Curl::version_info()->{protocols}} } }
+        @protocols
         {qw{ftp ftps gopher http https sftp scp}};
+our %implements = map { $_ => 1 } @implements;
 
 =for Pod::Coverage
 import
@@ -135,7 +137,7 @@ sub _setopt_ifdef {
 
 # Pre-configure the module
 sub import {
-    my (undef, @args) = @_;
+    my ($class, @args) = @_;
 
     my $takeover = 1;
     if (@args) {
@@ -152,7 +154,7 @@ sub import {
     }
 
     if ($takeover) {
-        LWP::Protocol::implementor($_ => __PACKAGE__)
+        LWP::Protocol::implementor($_ => $class)
             for @implements;
     }
 

@@ -20,6 +20,11 @@ ok(
     q(implements: ) . join(q(/), @LWP::Protocol::Net::Curl::implements)
 );
 
+ok(
+    $LWP::Protocol::Net::Curl::implements{http},
+    q(implements HTTP)
+);
+
 my $server = Test::HTTP::Server->new;
 
 unlike(
@@ -42,4 +47,4 @@ like(
     q(HEAD)
 );
 
-done_testing(4);
+done_testing(5);
