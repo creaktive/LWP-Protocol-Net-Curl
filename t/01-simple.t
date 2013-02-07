@@ -15,8 +15,9 @@ use LWP::Simple;
 use Test::HTTP::Server;
 use Test::More;
 
+## no critic (ProhibitPackageVars)
 ok(
-    grep(/^https?$/, @LWP::Protocol::Net::Curl::implements),
+    grep { /^https?$/x } @LWP::Protocol::Net::Curl::implements,
     q(implements: ) . join(q(/), @LWP::Protocol::Net::Curl::implements)
 );
 

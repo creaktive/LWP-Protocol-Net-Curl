@@ -105,7 +105,7 @@ request
 
 # Resolve libcurl constants by string
 sub _curlopt {
-    my ($key) = @_;
+    my ($key, $no_carp) = @_;
     return 0 + $key if looks_like_number($key);
 
     $key =~ s/^Net::Curl::Easy:://ix;
@@ -120,17 +120,21 @@ sub _curlopt {
         no warnings qw(once);
         return *$key->();
     };
-    carp qq(Invalid libcurl constant: $key) if $@;
+    carp qq(Invalid libcurl constant: $key)
+        if $@
+        and not defined $no_carp;
 
     return $const;
 }
 
 # Sugar for a common setopt() pattern
 sub _setopt_ifdef {
-    my ($easy, $key, $value) = @_;
+    my ($easy, $key, $value, $no_carp) = @_;
 
-    $easy->setopt(_curlopt($key) => $value)
-        if defined $value;
+    my $curlopt_key = _curlopt($key, $no_carp);
+    $easy->setopt($curlopt_key => $value)
+        if defined $curlopt_key
+        and defined $value;
 
     return;
 }
@@ -353,11 +357,11 @@ sub request {
     }
 
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
-    $easy->setopt(CURLOPT_NOPROXY           ,=> join(q(,) => @{$ua->{no_proxy}}));
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
     _setopt_ifdef($easy, CURLOPT_BUFFERSIZE ,=> $size);
     _setopt_ifdef($easy, CURLOPT_INTERFACE  ,=> $ua->local_address);
     _setopt_ifdef($easy, CURLOPT_MAXFILESIZE,=> $ua->max_size);
+    _setopt_ifdef($easy, CURLOPT_NOPROXY     => join(q(,) => @{$ua->{no_proxy}}), 1);
     _setopt_ifdef($easy, CURLOPT_PROXY      ,=> $proxy);
     _setopt_ifdef($easy, CURLOPT_SHARE      ,=> $share);
     _setopt_ifdef($easy, CURLOPT_TIMEOUT    ,=> $timeout);
