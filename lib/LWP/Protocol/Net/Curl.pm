@@ -129,10 +129,10 @@ sub _curlopt {
 
 # Sugar for a common setopt() pattern
 sub _setopt_ifdef {
-    my ($easy, $key, $value, $no_carp) = @_;
+    my ($curl, $key, $value, $no_carp) = @_;
 
     my $curlopt_key = _curlopt($key, $no_carp);
-    $easy->setopt($curlopt_key => $value)
+    $curl->setopt($curlopt_key => $value)
         if defined $curlopt_key
         and defined $value;
 
@@ -288,9 +288,11 @@ sub request {
         $ua->{curl_multi} = Net::Curl::Multi->new({ def_headers => $ua->{def_headers} });
 
         # avoid "callback function is not set" warning
-        $ua->{curl_multi}->setopt(CURLMOPT_SOCKETFUNCTION ,=> sub {
-            return 0;
-        });
+        _setopt_ifdef(
+            $ua->{curl_multi},
+            CURLMOPT_SOCKETFUNCTION => sub { return 0 },
+            1,
+        );
     }
 
     my $data = '';
