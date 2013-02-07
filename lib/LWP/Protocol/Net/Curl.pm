@@ -290,7 +290,7 @@ sub request {
         # avoid "callback function is not set" warning
         _setopt_ifdef(
             $ua->{curl_multi},
-            CURLMOPT_SOCKETFUNCTION => sub { return 0 },
+            q(CURLMOPT_SOCKETFUNCTION) => sub { return 0 },
             1,
         );
     }
@@ -363,7 +363,7 @@ sub request {
     _setopt_ifdef($easy, CURLOPT_BUFFERSIZE ,=> $size);
     _setopt_ifdef($easy, CURLOPT_INTERFACE  ,=> $ua->local_address);
     _setopt_ifdef($easy, CURLOPT_MAXFILESIZE,=> $ua->max_size);
-    _setopt_ifdef($easy, CURLOPT_NOPROXY     => join(q(,) => @{$ua->{no_proxy}}), 1);
+    _setopt_ifdef($easy, q(CURLOPT_NOPROXY)  => join(q(,) => @{$ua->{no_proxy}}), 1);
     _setopt_ifdef($easy, CURLOPT_PROXY      ,=> $proxy);
     _setopt_ifdef($easy, CURLOPT_SHARE      ,=> $share);
     _setopt_ifdef($easy, CURLOPT_TIMEOUT    ,=> $timeout);
