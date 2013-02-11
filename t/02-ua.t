@@ -28,11 +28,17 @@ isa_ok($res, q(HTTP::Response));
 ok($res->is_success, q(is_success));
 like($res->decoded_content, qr/\b${now}\b/sx, q(content pingback));
 
-$res = $ua->put($server->uri . q(echo/body), Content => q(zxcvb) x 10);
+$res = $ua->request(HTTP::Request->new(
+    PUT => $server->uri . q(echo/body),
+    HTTP::Headers->new,
+    q(zxcvb) x 10,
+));
 is($res->code, 200, q(PUT));
 like($res->decoded_content, qr/^(?:zxcvb){10}$/sx, q(PUT decoded_content()));
 
-$res = $ua->delete($server->uri . q(echo/body));
+$res = $ua->request(HTTP::Request->new(
+    DELETE => $server->uri . q(echo/body),
+));
 is($res->code, 200, q(DELETE));
 
 $res = $ua->request(HTTP::Request->new(DUMMY => $server->uri . q(echo/body)));
