@@ -112,7 +112,7 @@ sub _curlopt {
     $key =~ y/-/_/;
     $key =~ s/\W//gx;
     $key = uc $key;
-    $key = qq(CURLOPT_${key}) if $key !~ /^CURLOPT_/x;
+    $key = qq(CURLOPT_${key}) if $key !~ /^CURL(?:M|SH)?OPT_/x;
 
     ## no critic (ProhibitNoStrict,ProhibitNoWarnings)
     my $const = eval {
