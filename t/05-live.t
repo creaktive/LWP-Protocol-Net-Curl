@@ -8,7 +8,7 @@ use LWP::Protocol::Net::Curl;
 use LWP::UserAgent;
 use Test::More;
 
-plan skip_all => q(Internet connection required)
+plan skip_all => q(these tests are for automated (online) testing)
     unless exists $ENV{AUTOMATED_TESTING};
 
 my $ua = LWP::UserAgent->new;
