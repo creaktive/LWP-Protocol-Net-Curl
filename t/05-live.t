@@ -9,7 +9,7 @@ use LWP::UserAgent;
 use Test::More;
 
 plan skip_all => q(Internet connection required)
-    unless exists $ENV{LIVE_TESTING};
+    unless exists $ENV{AUTOMATED_TESTING};
 
 my $ua = LWP::UserAgent->new;
 

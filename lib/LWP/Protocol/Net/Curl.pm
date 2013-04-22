@@ -114,8 +114,8 @@ sub _curlopt {
     $key = uc $key;
     $key = qq(CURLOPT_${key}) if $key !~ /^CURL(?:M|SH)?OPT_/x;
 
-    ## no critic (ProhibitNoStrict,ProhibitNoWarnings)
     my $const = eval {
+        ## no critic (ProhibitNoStrict ProhibitNoWarnings)
         no strict qw(refs);
         no warnings qw(once);
         return *$key->();
