@@ -4,6 +4,8 @@ use utf8;
 use warnings qw(all);
 
 use LWP::Protocol::Net::Curl;
+$LWP::Protocol::Net::Curl::use_select = 1;
+
 use LWP::UserAgent;
 use Test::HTTP::Server;
 use Test::More;
