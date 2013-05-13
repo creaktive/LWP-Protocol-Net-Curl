@@ -319,6 +319,7 @@ sub request {
             $response->message($msg);
 
             $response->request($request);
+            $response->request->uri($easy->getinfo(CURLINFO_EFFECTIVE_URL));
             $response->previous($previous) if defined $previous;
             $previous = $response;
 
