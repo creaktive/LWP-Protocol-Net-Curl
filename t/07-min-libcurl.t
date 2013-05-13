@@ -32,13 +32,13 @@ while (<DATA>) {
 my $doc = PPI::Document->new($INC{q{LWP/Protocol/Net/Curl.pm}});
 isa_ok($doc, q(PPI::Document));
 
-my @found =
-    map { q...$_ }
+my %found =
+    map { q...$_ => 1 }
     grep { /^CURL/x }
     @{$doc->find(q(PPI::Token::Word))};
 
 my $top = '';
-for my $symbol (sort @found) {
+for my $symbol (sort keys %found) {
     my @version = (split(/\./x, $valid{$symbol}, 3), 0);
     my $version = sprintf q(%03d) x 3 => @version;
     $top = $version if $top lt $version;
@@ -47,7 +47,7 @@ for my $symbol (sort @found) {
 
 is($top, q(007010008), q(minimum: libcurl/7.10.8));
 
-done_testing 38;
+done_testing 36;
 
 __DATA__
                                   _   _ ____  _
