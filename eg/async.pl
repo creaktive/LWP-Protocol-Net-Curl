@@ -8,6 +8,7 @@ use Coro;
     package LWP::Protocol::Net::Curl;
     use Coro::Select qw(select);
     use LWP::Protocol::Net::Curl verbose => 0;
+    $LWP::Protocol::Net::Curl::use_select = 1;
 }
 use WWW::Mechanize;
 

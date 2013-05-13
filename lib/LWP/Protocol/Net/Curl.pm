@@ -98,6 +98,8 @@ our @implements =
         {qw{ftp ftps gopher http https sftp scp}};
 our %implements = map { $_ => 1 } @implements;
 
+our $use_select = Net::Curl::Multi->can(q(wait)) ? 0 : 1;
+
 =for Pod::Coverage
 import
 request
@@ -250,16 +252,22 @@ sub _fix_headers {
     return $encoding;
 }
 
-# Wrap libcurl perform() in a non-blocking way
+# Wrap libcurl perform() in a (potentially) non-blocking way
 sub _perform_loop {
     my ($multi) = @_;
 
     my $running = 0;
     do {
-        my ($r, $w, $e) = $multi->fdset;
         my $timeout = $multi->timeout;
-        select($r, $w, $e, $timeout / 1000)
-            if $timeout > 9;
+
+        if ($running and $timeout > 9) {
+            if ($use_select) {
+                my ($r, $w, $e) = $multi->fdset;
+                select($r, $w, $e, $timeout / 1000);
+            } else {
+                $multi->wait($timeout);
+            }
+        }
 
         $running = $multi->perform;
         while (my (undef, $easy, $result) = $multi->info_read) {
