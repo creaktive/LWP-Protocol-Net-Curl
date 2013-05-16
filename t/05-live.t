@@ -8,8 +8,8 @@ use LWP::Protocol::Net::Curl;
 use LWP::UserAgent;
 use Test::More;
 
-plan skip_all => q(these tests are for automated (online) testing; set $ENV{AUTOMATED_TESTING} to a true value)
-    unless exists $ENV{AUTOMATED_TESTING};
+plan skip_all => q(these tests are for extended (online) testing; set $ENV{EXTENDED_TESTING} to a true value)
+    unless exists $ENV{EXTENDED_TESTING};
 
 my $ua = LWP::UserAgent->new;
 
