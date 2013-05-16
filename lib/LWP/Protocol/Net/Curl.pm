@@ -77,6 +77,7 @@ use Net::Curl::Easy qw(:constants);
 use Net::Curl::Multi qw(:constants);
 use Net::Curl::Share qw(:constants);
 use Scalar::Util qw(looks_like_number);
+use URI;
 
 # VERSION
 
@@ -326,8 +327,9 @@ sub request {
             $msg =~ s/^\s+|\s+$//gsx;
             $response->message($msg);
 
-            $response->request($request);
-            $response->request->uri($easy->getinfo(CURLINFO_EFFECTIVE_URL));
+            $response->request($request->clone);
+            my $effective_url = URI->new('' . $easy->getinfo(CURLINFO_EFFECTIVE_URL));
+            $response->request->uri($effective_url);
             $response->previous($previous) if defined $previous;
             $previous = $response;
 
