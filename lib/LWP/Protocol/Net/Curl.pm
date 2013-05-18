@@ -316,7 +316,7 @@ sub request {
     $response->request($request);
 
     $easy->setopt(CURLOPT_HEADERFUNCTION ,=> sub {
-        my (undef, $line) = @_;
+        my ($_easy, $line) = @_;
         $header .= $line;
 
         # I hope only HTTP sends "empty line" as delimiters
@@ -328,7 +328,7 @@ sub request {
             $response->message($msg);
 
             $response->request($request->clone);
-            my $effective_url = URI->new('' . $easy->getinfo(CURLINFO_EFFECTIVE_URL));
+            my $effective_url = URI->new('' . $_easy->getinfo(CURLINFO_EFFECTIVE_URL));
             $response->request->uri($effective_url);
             $response->previous($previous) if defined $previous;
             $previous = $response;
