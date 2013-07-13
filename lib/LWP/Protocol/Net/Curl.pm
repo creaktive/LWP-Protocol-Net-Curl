@@ -179,6 +179,7 @@ sub _handle_method {
         }, POST => sub {
             $easy->setopt(CURLOPT_POST      ,=> 1);
             $easy->setopt(CURLOPT_POSTFIELDS,=> $request->content);
+            $easy->setopt(CURLOPT_POSTFIELDSIZE,=> length $request->content);
         }, HEAD => sub {
             $easy->setopt(CURLOPT_NOBODY    ,=> 1);
         }, DELETE => sub {
