@@ -20,7 +20,13 @@ my $res = $ua->post(
     $server->uri . q(echo/body),
     q(Accept-Encoding) => q(gzip, bzip2),
     Skipped => undef,
-    Content => { a => 1, b => 2, c => 3, time => $now },
+    Content => {
+        a       => 1,
+        b       => 2,
+        c       => 3,
+        time    => $now,
+        string  => "\x{41f}\x{435}\x{440}\x{43b}",
+    },
 );
 isa_ok($ua->{curl_multi}, q(Net::Curl::Multi));
 
