@@ -3,6 +3,9 @@ use strict;
 use utf8;
 use warnings qw(all);
 
+# HACK! LWP::Simple insist running $ua->env_proxy on initialization
+BEGIN { /_proxy$/ix and delete $ENV{$_} for keys %ENV };
+
 use Net::Curl::Easy qw(:constants);
 
 use LWP::Protocol::Net::Curl

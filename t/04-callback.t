@@ -11,6 +11,7 @@ use Test::HTTP::Server;
 use Test::More;
 
 my $server = Test::HTTP::Server->new;
+local $ENV{no_proxy} = '*';
 
 my $ua = LWP::UserAgent->new;
 

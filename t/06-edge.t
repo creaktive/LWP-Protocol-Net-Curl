@@ -14,6 +14,8 @@ use LWP::Protocol::Net::Curl
 use LWP::UserAgent;
 use Net::Curl::Easy;
 
+local $ENV{no_proxy} = '*';
+
 my $easy = Net::Curl::Easy->new({});
 isa_ok($easy, q(Net::Curl::Easy));
 
