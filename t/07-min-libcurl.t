@@ -47,7 +47,7 @@ for my $symbol (sort keys %found) {
 
 is($top, q(007010008), q(minimum: libcurl/7.10.8));
 
-done_testing 37;
+done_testing 36;
 
 __DATA__
                                   _   _ ____  _
@@ -480,7 +480,7 @@ CURLOPT_POSTREDIR               7.19.1
 CURLOPT_PREQUOTE                7.9.5
 CURLOPT_PRIVATE                 7.10.3
 CURLOPT_PROGRESSDATA            7.1
-CURLOPT_PROGRESSFUNCTION        7.1
+CURLOPT_PROGRESSFUNCTION        7.1           7.32.0
 CURLOPT_PROTOCOLS               7.19.4
 CURLOPT_PROXY                   7.1
 CURLOPT_PROXYAUTH               7.10.7
@@ -577,6 +577,8 @@ CURLOPT_WRITEDATA               7.9.7
 CURLOPT_WRITEFUNCTION           7.1
 CURLOPT_WRITEHEADER             7.1
 CURLOPT_WRITEINFO               7.1
+CURLOPT_XFERINFODATA            7.32.0
+CURLOPT_XFERINFOFUNCTION        7.32.0
 CURLPAUSE_ALL                   7.18.0
 CURLPAUSE_CONT                  7.18.0
 CURLPAUSE_RECV                  7.18.0
