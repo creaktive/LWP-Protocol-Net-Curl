@@ -3,7 +3,7 @@ use strict;
 use utf8;
 use warnings qw(all);
 
-use LWP::Protocol::Net::Curl;
+use LWP::Protocol::Net::Curl ftpport => 0;
 
 use LWP::UserAgent;
 use Test::More;
@@ -26,9 +26,9 @@ SKIP: {
     ok($res->redirects > 0, q(HTTPS redirects() == ) . $res->redirects);
 }
 
-$res = $ua->get(q(ftp://ftp.kernel.org/pub/README_ABOUT_BZ2_FILES));
+$res = $ua->get(q(ftp://ftp.cpan.org/pub/CPAN/README));
 ok($res->is_success, q(FTP is_success()));
-like($res->content, qr(^This\s+file\s+describes\b)x, q(FTP content() start));
+like($res->content, qr(^CPAN:\s+Comprehensive\s+Perl\s+Archive\s+Network\b)x, q(FTP content() start));
 
 $res = $ua->get(q(gopher://gopher.docfile.org/1/world/monitoring/uptime));
 ok($res->is_success, q(gopher is_success()));
