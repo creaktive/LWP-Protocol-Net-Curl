@@ -373,7 +373,7 @@ sub request {
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
     $easy->setopt(CURLOPT_URL               ,=> $request->uri);
     _setopt_ifdef($easy, CURLOPT_BUFFERSIZE ,=> $size);
-    _setopt_ifdef($easy, CURLOPT_INTERFACE  ,=> $ua->local_address);
+    _setopt_ifdef($easy, CURLOPT_INTERFACE  ,=> $ua->{local_address});
     _setopt_ifdef($easy, CURLOPT_MAXFILESIZE,=> $ua->max_size);
     _setopt_ifdef($easy, q(CURLOPT_NOPROXY)  => join(q(,) => @{$ua->{no_proxy}}), 1);
     _setopt_ifdef($easy, CURLOPT_PROXY      ,=> $proxy);
@@ -381,7 +381,7 @@ sub request {
     _setopt_ifdef($easy, CURLOPT_TIMEOUT    ,=> $timeout);
     _setopt_ifdef($easy, CURLOPT_WRITEDATA  ,=> $writedata);
 
-    if ($ua->show_progress) {
+    if ($ua->{show_progress}) {
         $easy->setopt(CURLOPT_NOPROGRESS    ,=> 0);
         _setopt_ifdef(
             $easy,
