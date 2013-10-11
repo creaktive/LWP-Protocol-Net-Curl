@@ -368,6 +368,7 @@ sub request {
 
         # fixes a security flaw denied by libcurl v7.28.1
         _setopt_ifdef($easy, SSL_VERIFYHOST => (!!$ua->{ssl_opts}{verify_hostname}) << 1);
+        _setopt_ifdef($easy, SSL_VERIFYPEER => 0) unless $ua->{ssl_opts}{verify_hostname};
     }
 
     $easy->setopt(CURLOPT_FILETIME          ,=> 1);
