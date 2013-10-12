@@ -85,6 +85,7 @@ my %curlopt;
 my $share;
 unless (defined $Config{usethreads}) {
     $share = Net::Curl::Share->new({ started => time });
+    $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_COOKIE);
     $share->setopt(CURLSHOPT_SHARE ,=> CURL_LOCK_DATA_DNS);
 
     ## no critic (RequireCheckingReturnValueOfEval)

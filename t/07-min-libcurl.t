@@ -47,7 +47,7 @@ for my $symbol (sort keys %found) {
 
 is($top, q(007010008), q(minimum: libcurl/7.10.8));
 
-done_testing 36;
+done_testing 37;
 
 __DATA__
                                   _   _ ____  _
