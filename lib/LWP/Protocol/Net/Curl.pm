@@ -49,6 +49,17 @@ Default L<curl_easy_setopt() options|http://curl.haxx.se/libcurl/c/curl_easy_set
         referer     => 'http://google.com/',
         verbose     => 1;   # make libcurl print lots of stuff to STDERR
 
+Or during runtime, using special HTTP headers (prefixed by C<X-CurlOpt->):
+
+    use LWP::Protocol::Net::Curl;
+    use LWP::UserAgent;
+
+    my $ua = LWP::UserAgent->new;
+    my $res = $ua->get(
+        'https://metacpan.org/',
+        X_CurlOpt_Verbose => 1,
+    );
+
 Options set this way have the lowest precedence.
 For instance, if L<WWW::Mechanize> sets the I<Referer:> by it's own, the value you defined above won't be used.
 
@@ -248,6 +259,8 @@ sub _fix_headers {
         # I guess it would be nice to introduce ourselves in a polite way.
         $value =~ s/\b(\Q@{[ $ua->_agent ]}\E)\b/qq($1 ) . Net::Curl::version()/egx;
         $easy->setopt(CURLOPT_USERAGENT     ,=> $value);
+    } elsif ($key =~ /^x[-_](curlopt[-\w]+)$/ix) {
+        _setopt_ifdef($easy, $1 => $value);
     } else {
         $easy->pushopt(CURLOPT_HTTPHEADER   ,=> [qq[$key: $value]]);
     }
