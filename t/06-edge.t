@@ -23,7 +23,7 @@ isa_ok($easy, q(Net::Curl::Easy));
 LWP::Protocol::Net::Curl::_setopt_ifdef($easy, _DUMMY2 => 1 => 1);
 
 my $ua = LWP::UserAgent->new;
-my $res = $ua->get(q(http://127.0.0.1:0/));
+my $res = $ua->get(q(http://0.42.42.42/));
 ok($res->is_error, q(bad address 1));
 like($res->message, qr/couldn't\s+connect\s+to\s+server/ix, q(bad address 2));
 
