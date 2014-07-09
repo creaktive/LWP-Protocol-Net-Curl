@@ -379,6 +379,8 @@ sub request {
     if ($request->uri->scheme =~ /s$/ix) {
         _setopt_ifdef($easy, CAINFO         => $ua->{ssl_opts}{SSL_ca_file});
         _setopt_ifdef($easy, CAPATH         => $ua->{ssl_opts}{SSL_ca_path});
+        _setopt_ifdef($easy, CURLOPT_SSLCERT=> $ua->{ssl_opts}{SSL_cert_file});
+        _setopt_ifdef($easy, CURLOPT_SSLKEY => $ua->{ssl_opts}{SSL_key_file});
 
         # fixes a security flaw denied by libcurl v7.28.1
         _setopt_ifdef($easy, SSL_VERIFYHOST => (!!$ua->{ssl_opts}{verify_hostname}) << 1);
