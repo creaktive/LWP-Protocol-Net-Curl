@@ -53,7 +53,7 @@ $res = $ua->request(HTTP::Request->new(
 is($res->code, 200, q(DELETE));
 
 $res = $ua->request(HTTP::Request->new(DUMMY => $server->uri . q(echo/body)));
-is($res->code, 400, q(unsupported method));
+isnt($res->code, 200, q(unsupported method; ) . $res->status_line);
 
 LWP::Protocol::implementor(file => q(LWP::Protocol::Net::Curl));
 $res = $ua->get(qq(file://$Bin/$Script), q(Accept-Encoding) => q(dummy));
