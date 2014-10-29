@@ -200,7 +200,14 @@ sub _handle_method {
             $easy->setopt(CURLOPT_UPLOAD    ,=> 1);
             my $buf = $request->content;
             my $off = 0;
+            # Do not set CURLOPT_INFILESIZE if Content-Length header exists
+            # and libcurl version is earlier than 7.23.0 (note libcurl will
+            # send two Content-Length headers in versions earlier than 7.23.0
+            # when both the Content-Length header and CURLOPT_INFILESIZE
+            # option is set).
             $easy->setopt(CURLOPT_INFILESIZE,=> length $buf);
+              if ! defined $request->header('content-length')
+                || Net::Curl::version_info()->{version_num} >= 464640;            
             $easy->setopt(CURLOPT_READFUNCTION ,=> sub {
                 my (undef, $maxlen) = @_;
                 my $chunk = substr $buf, $off, $maxlen;
