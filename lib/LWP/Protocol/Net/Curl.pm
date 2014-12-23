@@ -205,9 +205,9 @@ sub _handle_method {
             # send two Content-Length headers in versions earlier than 7.23.0
             # when both the Content-Length header and CURLOPT_INFILESIZE
             # option is set).
-            $easy->setopt(CURLOPT_INFILESIZE,=> length $buf);
-              if ! defined $request->header('content-length')
-                || Net::Curl::version_info()->{version_num} >= 464640;            
+            $easy->setopt(CURLOPT_INFILESIZE,=> length $buf)
+                if !defined $request->header('Content-Length')
+                    || Net::Curl::version_info()->{version_num} >= 0x72300;
             $easy->setopt(CURLOPT_READFUNCTION ,=> sub {
                 my (undef, $maxlen) = @_;
                 my $chunk = substr $buf, $off, $maxlen;
