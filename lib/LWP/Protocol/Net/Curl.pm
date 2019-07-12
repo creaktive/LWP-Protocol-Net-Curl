@@ -221,7 +221,7 @@ sub _handle_method {
     if (defined $method_ref) {
         $method_ref->();
     } else {
-        ## no critic (RequireCarping)
+        ## no critic (RequireCarping RequireUseOfExceptions)
         die HTTP::Response->new(
             &HTTP::Status::RC_BAD_REQUEST,
             qq(Bad method '$method')
@@ -298,7 +298,7 @@ sub _perform_loop {
             if ($result == CURLE_TOO_MANY_REDIRECTS) {
                 # will return the last request
             } elsif ($result) {
-                ## no critic (RequireCarping)
+                ## no critic (RequireCarping RequireUseOfExceptions)
                 die HTTP::Response->new(
                     &HTTP::Status::RC_BAD_REQUEST,
                     qq($result),
