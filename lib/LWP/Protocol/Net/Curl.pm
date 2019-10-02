@@ -217,6 +217,18 @@ sub _handle_method {
         },
     );
 
+	if (my $protocol = $request->protocol) {
+		my $v;
+		if ($protocol =~ m/^HTTP\/1.0$/) {
+			$v = CURL_HTTP_VERSION_1_0;
+		} elsif ($protocol =~ m/^HTTP\/1.1$/) {
+			$v = CURL_HTTP_VERSION_1_1;
+		} elsif ($protocol =~ m/^HTTP\/2$/) {
+			$v = CURL_HTTP_VERSION_2TLS;
+		}
+		$easy->setopt(CURLOPT_HTTP_VERSION ,=> $v) if $v;
+	}
+
     my $method_ref = $dispatch{$method};
     if (defined $method_ref) {
         $method_ref->();
