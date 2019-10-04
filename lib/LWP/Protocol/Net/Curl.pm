@@ -223,8 +223,10 @@ sub _handle_method {
 			$v = CURL_HTTP_VERSION_1_0;
 		} elsif ($protocol =~ m/^HTTP\/1\.1$/) {
 			$v = CURL_HTTP_VERSION_1_1;
-		} elsif ($protocol =~ m/^HTTP\/2$/) {
-			$v = CURL_HTTP_VERSION_2TLS;
+		} elsif ($protocol =~ m/^HTTP\/2/) {
+			$v =  eval { Net::Curl::Easy::CURL_HTTP_VERSION_2TLS() };
+		} elsif ($protocol =~ m/^HTTP\/3/) {
+			$v =  eval { Net::Curl::Easy::CURL_HTTP_VERSION_3() };
 		}
 		$easy->setopt(CURLOPT_HTTP_VERSION ,=> $v) if $v;
 	}
