@@ -8,7 +8,7 @@ LWP::Protocol::Net::Curl - the power of libcurl in the palm of your hands!
 
 =head1 VERSION
 
-version 0.025
+version 0.026
 
 =head1 SYNOPSIS
 
@@ -189,13 +189,17 @@ the same terms as the Perl 5 programming language system itself.
 
 =head1 CONTRIBUTORS
 
-=for stopwords José Joaquín Atria Peter Williams
+=for stopwords José Joaquín Atria Nick Kostyria Peter Williams
 
 =over 4
 
 =item *
 
 José Joaquín Atria <jjatria@gmail.com>
+
+=item *
+
+Nick Kostyria <kostirya@gmail.com>
 
 =item *
 
